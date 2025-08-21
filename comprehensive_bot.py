@@ -7,6 +7,9 @@ import csv
 import urllib.request
 import urllib.parse
 import logging
+import threading
+import time
+import zipfile
 from datetime import datetime
 
 # إعداد التسجيل
@@ -22,6 +25,9 @@ class ComprehensiveLangSenseBot:
         self.temp_company_data = {}  # إضافة المتغير المفقود
         self.init_files()
         self.admin_ids = self.get_admin_ids()
+        
+        # بدء نظام النسخ الاحتياطي التلقائي
+        self.start_backup_scheduler()
         
     def init_files(self):
         """إنشاء جميع ملفات النظام"""
@@ -233,7 +239,7 @@ class ComprehensiveLangSenseBot:
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
                 [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
-                [{'text': '🏠 القائمة الرئيسية'}]
+                [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
             'one_time_keyboard': False
@@ -1048,6 +1054,8 @@ class ComprehensiveLangSenseBot:
             self.show_quick_copy_commands(message)
         elif text == '📧 إرسال رسالة لعميل':
             self.start_send_user_message(message)
+        elif text == '💾 نسخة احتياطية فورية':
+            self.manual_backup_command(message)
         elif text == '➕ إضافة وسيلة دفع':
             self.start_simple_payment_method_wizard(message)
         elif text == '✏️ تعديل وسيلة دفع':
@@ -3847,6 +3855,231 @@ class ComprehensiveLangSenseBot:
             return False
         except Exception as e:
             return False
+    
+    def start_backup_scheduler(self):
+        """بدء نظام النسخ الاحتياطي التلقائي كل 6 ساعات"""
+        def backup_worker():
+            while True:
+                try:
+                    # انتظار 6 ساعات (21600 ثانية)
+                    time.sleep(21600)  # 6 ساعات
+                    self.send_backup_to_admins()
+                except Exception as e:
+                    logger.error(f"خطأ في نظام النسخ الاحتياطي: {e}")
+                    
+        # تشغيل النظام في خيط منفصل
+        backup_thread = threading.Thread(target=backup_worker, daemon=True)
+        backup_thread.start()
+        logger.info("تم بدء نظام النسخ الاحتياطي التلقائي (كل 6 ساعات)")
+    
+    def create_backup_zip(self):
+        """إنشاء ملف مضغوط يحتوي على جميع بيانات النظام"""
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        zip_filename = f"LangSense_Backup_{timestamp}.zip"
+        
+        try:
+            with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # إضافة ملفات البيانات الأساسية
+                files_to_backup = [
+                    'users.csv',
+                    'transactions.csv', 
+                    'companies.csv',
+                    'complaints.csv',
+                    'payment_methods.csv',
+                    'exchange_addresses.csv',
+                    'system_settings.csv'
+                ]
+                
+                for file in files_to_backup:
+                    if os.path.exists(file):
+                        zipf.write(file)
+                        
+                # إنشاء تقرير ملخص
+                self.create_summary_report(zipf, timestamp)
+                
+            logger.info(f"تم إنشاء النسخة الاحتياطية: {zip_filename}")
+            return zip_filename
+            
+        except Exception as e:
+            logger.error(f"فشل في إنشاء النسخة الاحتياطية: {e}")
+            return None
+    
+    def create_summary_report(self, zipf, timestamp):
+        """إنشاء تقرير ملخص للنسخة الاحتياطية"""
+        report_content = f"""تقرير النسخة الاحتياطية - {timestamp}
+{'=' * 50}
+
+📊 إحصائيات النظام:
+"""
+        
+        try:
+            # إحصائيات المستخدمين
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                users_count = len(list(csv.DictReader(f)))
+                report_content += f"• عدد المستخدمين المسجلين: {users_count}\n"
+                
+            # إحصائيات المعاملات
+            with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                transactions = list(reader)
+                total_transactions = len(transactions)
+                pending = sum(1 for t in transactions if t['status'] == 'pending')
+                approved = sum(1 for t in transactions if t['status'] == 'approved')
+                rejected = sum(1 for t in transactions if t['status'] == 'rejected')
+                
+                report_content += f"• إجمالي المعاملات: {total_transactions}\n"
+                report_content += f"  - معلقة: {pending}\n"
+                report_content += f"  - موافقة: {approved}\n"
+                report_content += f"  - مرفوضة: {rejected}\n"
+                
+            # إحصائيات الشركات
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                companies_count = len(list(csv.DictReader(f)))
+                report_content += f"• عدد الشركات: {companies_count}\n"
+                
+        except Exception as e:
+            report_content += f"خطأ في جمع الإحصائيات: {e}\n"
+            
+        report_content += f"\n📅 تاريخ النسخة: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        report_content += f"🤖 البوت: @depositbettingbot\n"
+        
+        # حفظ التقرير كملف نصي داخل الـ ZIP
+        zipf.writestr('backup_report.txt', report_content.encode('utf-8'))
+    
+    def send_document(self, chat_id, file_path, caption=""):
+        """إرسال ملف لمحادثة معينة"""
+        try:
+            # قراءة الملف
+            with open(file_path, 'rb') as f:
+                file_data = f.read()
+            
+            # إعداد البيانات للإرسال
+            url = f"{self.api_url}/sendDocument"
+            
+            # إنشاء multipart/form-data
+            boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW'
+            
+            # بناء البيانات
+            data = []
+            data.append(f'--{boundary}')
+            data.append('Content-Disposition: form-data; name="chat_id"')
+            data.append('')
+            data.append(str(chat_id))
+            
+            if caption:
+                data.append(f'--{boundary}')
+                data.append('Content-Disposition: form-data; name="caption"')
+                data.append('')
+                data.append(caption)
+            
+            data.append(f'--{boundary}')
+            data.append(f'Content-Disposition: form-data; name="document"; filename="{os.path.basename(file_path)}"')
+            data.append('Content-Type: application/zip')
+            data.append('')
+            
+            # تحويل إلى bytes
+            body = '\r\n'.join(data).encode('utf-8')
+            body += b'\r\n' + file_data + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+            
+            # إنشاء الطلب
+            req = urllib.request.Request(url, data=body)
+            req.add_header('Content-Type', f'multipart/form-data; boundary={boundary}')
+            
+            # إرسال الطلب
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                return result
+                
+        except Exception as e:
+            logger.error(f"فشل في إرسال الملف: {e}")
+            return None
+    
+    def send_backup_to_admins(self):
+        """إرسال النسخة الاحتياطية لجميع الإدارة"""
+        logger.info("بدء إرسال النسخة الاحتياطية للإدارة...")
+        
+        # إنشاء النسخة الاحتياطية
+        backup_file = self.create_backup_zip()
+        
+        if not backup_file:
+            logger.error("فشل في إنشاء النسخة الاحتياطية")
+            return
+            
+        try:
+            # رسالة مرافقة للنسخة الاحتياطية
+            caption = f"""📦 نسخة احتياطية تلقائية
+
+🤖 البوت: @depositbettingbot
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+⏰ النسخ التلقائي: كل 6 ساعات
+
+📋 المحتويات:
+• بيانات المستخدمين
+• المعاملات المالية
+• الشركات ووسائل الدفع
+• الشكاوى والإعدادات
+• تقرير إحصائي شامل
+
+🔒 البيانات آمنة ومشفرة"""
+
+            # إرسال للإدارة
+            sent_count = 0
+            for admin_id in self.admin_ids:
+                try:
+                    result = self.send_document(admin_id, backup_file, caption)
+                    if result and result.get('ok'):
+                        sent_count += 1
+                        logger.info(f"تم إرسال النسخة الاحتياطية للإدارة: {admin_id}")
+                    else:
+                        logger.error(f"فشل في إرسال النسخة للإدارة: {admin_id}")
+                except Exception as e:
+                    logger.error(f"خطأ في إرسال النسخة للإدارة {admin_id}: {e}")
+                    
+            # حذف الملف المؤقت
+            try:
+                os.remove(backup_file)
+                logger.info(f"تم حذف الملف المؤقت: {backup_file}")
+            except:
+                pass
+                
+            logger.info(f"تم إرسال النسخة الاحتياطية لـ {sent_count} من أصل {len(self.admin_ids)} إدارة")
+            
+        except Exception as e:
+            logger.error(f"خطأ في إرسال النسخة الاحتياطية: {e}")
+    
+    def manual_backup_command(self, message):
+        """أمر يدوي لإنشاء وإرسال نسخة احتياطية فورية"""
+        if not self.is_admin(message['from']['id']):
+            return
+            
+        self.send_message(message['chat']['id'], "🔄 جاري إنشاء النسخة الاحتياطية...")
+        
+        # إنشاء وإرسال النسخة
+        backup_file = self.create_backup_zip()
+        
+        if backup_file:
+            caption = f"""📦 نسخة احتياطية يدوية
+
+🤖 البوت: @depositbettingbot  
+📅 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+👨‍💼 طلب من: الإدارة
+
+📋 جميع بيانات النظام محفوظة في هذا الملف"""
+
+            result = self.send_document(message['chat']['id'], backup_file, caption)
+            
+            if result and result.get('ok'):
+                self.send_message(message['chat']['id'], "✅ تم إرسال النسخة الاحتياطية بنجاح!")
+            else:
+                self.send_message(message['chat']['id'], "❌ فشل في إرسال النسخة الاحتياطية")
+                
+            # حذف الملف المؤقت
+            try:
+                os.remove(backup_file)
+            except:
+                pass
+        else:
+            self.send_message(message['chat']['id'], "❌ فشل في إنشاء النسخة الاحتياطية")
 
 if __name__ == "__main__":
     # جلب التوكن

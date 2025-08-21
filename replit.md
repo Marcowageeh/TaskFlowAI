@@ -18,6 +18,7 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Language**: Python 3 with urllib and json for lightweight operation
 - **State Management**: Simple dictionary-based state management for user sessions
 - **Implementation**: Streamlined single-file solution without external dependencies
+- **Backup System**: Automated data backup every 6 hours with ZIP compression and admin delivery
 
 ### Database Layer
 - **Database**: CSV files for simplicity and transparency
@@ -96,6 +97,9 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Logging**: Basic console logging for monitoring
 - **Validation**: Simple input validation with clear error messages
 - **Fallbacks**: Graceful handling of invalid inputs
+- **Data Protection**: Automated backup system every 6 hours with encrypted ZIP files sent to admin accounts
+- **Manual Backup**: Admin command for instant backup generation and delivery
+- **Backup Contents**: All CSV files, system settings, and comprehensive statistical reports
 
 ## External Dependencies
 
