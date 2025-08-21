@@ -968,6 +968,8 @@ class ComprehensiveLangSenseBot:
             self.start_add_company_wizard(message)
         elif text == '⚙️ إدارة الشركات':
             self.show_companies_management_enhanced(message)
+        elif text == '🔄 تحديث القائمة':
+            self.show_companies_management_enhanced(message)
         elif text == '➕ إضافة شركة جديدة':
             self.prompt_add_company(message)
         elif text == '✏️ تعديل شركة':
@@ -1928,26 +1930,33 @@ class ComprehensiveLangSenseBot:
         companies_text = "🏢 إدارة الشركات المتقدمة\n\n"
         
         try:
-            # قراءة جميع الشركات من الملف
+            # قراءة جميع الشركات من الملف مع إعادة تحميل الملف
             companies = []
             with open('companies.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
-                for row in reader:
-                    companies.append(row)
+                companies = list(reader)  # تحويل إلى قائمة فوراً
             
             if len(companies) == 0:
                 companies_text += "❌ لا توجد شركات مسجلة\n\n"
             else:
-                companies_text += f"📊 إجمالي الشركات: {len(companies)}\n\n"
+                companies_text += f"📊 إجمالي الشركات: {len(companies)}\n"
+                companies_text += f"📅 آخر تحديث: {datetime.now().strftime('%H:%M:%S')}\n\n"
                 
-                for row in companies:
+                for i, row in enumerate(companies, 1):
                     status = "✅" if row.get('is_active', '').lower() == 'active' else "❌"
-                    type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(row['type'], row['type'])
-                    companies_text += f"{status} **{row['name']}** (ID: {row['id']})\n"
-                    companies_text += f"   🔧 {type_display} | 📋 {row['details']}\n\n"
+                    type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(row.get('type', ''), row.get('type', ''))
+                    companies_text += f"{i}. {status} **{row.get('name', 'غير محدد')}** (ID: {row.get('id', 'غير محدد')})\n"
+                    companies_text += f"   🔧 {type_display} | 📋 {row.get('details', 'لا توجد تفاصيل')}\n\n"
                     
         except Exception as e:
             companies_text += f"❌ خطأ في قراءة ملف الشركات: {str(e)}\n\n"
+            # محاولة إظهار محتوى الملف للتشخيص
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    content = f.read()
+                    companies_text += f"محتوى الملف:\n{content[:200]}...\n\n"
+            except:
+                companies_text += "فشل في قراءة محتوى الملف\n\n"
         
         # أزرار الإدارة المتقدمة
         management_keyboard = {
