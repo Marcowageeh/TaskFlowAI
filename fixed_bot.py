@@ -34,19 +34,29 @@ class LangSenseBot:
         if not os.path.exists('users.csv'):
             with open('users.csv', 'w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                writer.writerow(['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date'])
+                writer.writerow(['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason'])
         
         # ملف المعاملات
         if not os.path.exists('transactions.csv'):
             with open('transactions.csv', 'w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                writer.writerow(['id', 'customer_id', 'type', 'amount', 'status', 'date'])
+                writer.writerow(['id', 'customer_id', 'telegram_id', 'name', 'type', 'amount', 'status', 'date', 'admin_note', 'payment_method', 'receipt_info'])
         
         # ملف الشكاوى
         if not os.path.exists('complaints.csv'):
             with open('complaints.csv', 'w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'customer_id', 'subject', 'message', 'status', 'date'])
+        
+        # ملف وسائل الدفع
+        if not os.path.exists('payment_methods.csv'):
+            with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['id', 'name', 'type', 'details', 'is_active', 'created_date'])
+                # إضافة وسائل افتراضية
+                writer.writerow(['1', 'البنك الأهلي', 'deposit', 'رقم الحساب: 1234567890', 'active', datetime.now().strftime('%Y-%m-%d')])
+                writer.writerow(['2', 'بنك الراجحي', 'deposit', 'رقم الحساب: 0987654321', 'active', datetime.now().strftime('%Y-%m-%d')])
+                writer.writerow(['3', 'STC Pay', 'withdraw', 'رقم الجوال: 0501234567', 'active', datetime.now().strftime('%Y-%m-%d')])
         
         logger.info("تم إنشاء ملفات Excel بنجاح")
         
@@ -147,7 +157,7 @@ class LangSenseBot:
             writer = csv.writer(f)
             writer.writerow([
                 telegram_id, name, phone, customer_id, 
-                language, datetime.now().strftime('%Y-%m-%d %H:%M')
+                language, datetime.now().strftime('%Y-%m-%d %H:%M'), 'no', ''
             ])
     
     def generate_customer_id(self):
@@ -160,14 +170,14 @@ class LangSenseBot:
         except:
             return "C000001"
     
-    def save_transaction(self, customer_id, trans_type, amount, status='pending'):
+    def save_transaction(self, customer_id, telegram_id, name, trans_type, amount, payment_method='', receipt_info='', status='pending'):
         """حفظ معاملة"""
         trans_id = f"T{datetime.now().strftime('%Y%m%d%H%M%S')}"
         with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             writer.writerow([
-                trans_id, customer_id, trans_type, amount, 
-                status, datetime.now().strftime('%Y-%m-%d %H:%M')
+                trans_id, customer_id, telegram_id, name, trans_type, amount, 
+                status, datetime.now().strftime('%Y-%m-%d %H:%M'), '', payment_method, receipt_info
             ])
         return trans_id
     
@@ -217,6 +227,25 @@ class LangSenseBot:
         admin_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
         return str(telegram_id) in admin_ids
     
+    def is_user_banned(self, telegram_id):
+        """فحص إذا كان المستخدم محظور"""
+        user = self.find_user(telegram_id)
+        return user and user.get('is_banned', 'no') == 'yes'
+    
+    def get_payment_methods(self, method_type=None):
+        """جلب وسائل الدفع"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if method_type is None or row['type'] == method_type:
+                        if row['is_active'] == 'active':
+                            methods.append(row)
+        except:
+            pass
+        return methods
+    
     def handle_admin_commands(self, message):
         """أوامر الأدمن"""
         if not self.is_admin(message['from']['id']):
@@ -232,9 +261,13 @@ class LangSenseBot:
             
         try:
             with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
-                trans_count = len(f.readlines()) - 1
+                reader = csv.DictReader(f)
+                trans_list = list(reader)
+                trans_count = len(trans_list)
+                pending_count = len([t for t in trans_list if t['status'] == 'pending'])
         except:
             trans_count = 0
+            pending_count = 0
         
         try:
             with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
@@ -242,20 +275,30 @@ class LangSenseBot:
         except:
             comp_count = 0
         
-        admin_text = f"""🛠️ لوحة الإدارة
+        admin_text = f"""🛠️ لوحة الإدارة المتقدمة
 
 📊 الإحصائيات:
 👥 المستخدمين: {users_count}
-💰 المعاملات: {trans_count}  
+💰 المعاملات: {trans_count} (⏳ معلقة: {pending_count})
 📨 الشكاوى: {comp_count}
 
-📁 الملفات:
-• users.csv
-• transactions.csv  
-• complaints.csv
+🔧 أوامر إدارة المستخدمين:
+/search اسم_أو_رقم - البحث عن مستخدم
+/userinfo رقم_العميل - معلومات مستخدم
+/ban رقم_العميل سبب - حظر مستخدم
+/unban رقم_العميل - إلغاء حظر
 
-💡 الأوامر:
-/admin - لوحة الإدارة
+💳 إدارة وسائل الدفع:
+/payments - عرض وسائل الدفع
+/addpay نوع اسم تفاصيل - إضافة وسيلة دفع
+
+📋 إدارة الطلبات:
+/pending - الطلبات المعلقة
+/approve رقم_المعاملة - موافقة
+/reject رقم_المعاملة سبب - رفض
+/note رقم_المعاملة ملاحظة - إضافة تعليق
+
+📢 أوامر أخرى:
 /users - قائمة المستخدمين
 /broadcast رسالة - إرسال جماعي"""
         
