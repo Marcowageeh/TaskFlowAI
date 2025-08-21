@@ -1086,6 +1086,25 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "يرجى كتابة العنوان الجديد. مثال: عنوان شارع الملك فهد", self.admin_keyboard())
         elif text.startswith('تعديل_اعداد '):
             self.update_setting_simple(message, text)
+        elif text == '✅ حفظ الشركة':
+            # التعامل مع حفظ الشركة من المعالج
+            if user_id in self.user_states and self.user_states[user_id].startswith('add_company_confirm'):
+                self.confirm_add_company(message, text)
+            else:
+                self.send_message(chat_id, "❌ لا توجد شركة للحفظ. ابدأ بإضافة شركة جديدة أولاً.", self.admin_keyboard())
+        elif text == '✅ حفظ التغييرات':
+            # التعامل مع حفظ تغييرات الشركة
+            if user_id in self.user_states and self.user_states[user_id].startswith('edit_company_confirm'):
+                self.save_company_changes(message)
+            else:
+                self.send_message(chat_id, "❌ لا توجد تغييرات للحفظ. ابدأ بتعديل شركة أولاً.", self.admin_keyboard())
+        elif text in ['❌ إلغاء', 'إلغاء', 'الغاء']:
+            # إلغاء العملية الحالية
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            if user_id in self.edit_company_data:
+                del self.edit_company_data[user_id]
+            self.send_message(chat_id, "❌ تم إلغاء العملية", self.admin_keyboard())
         else:
             self.send_message(chat_id, "أمر غير مفهوم. استخدم الأزرار أو الأوامر الصحيحة.", self.admin_keyboard())
     
@@ -1819,7 +1838,7 @@ class ComprehensiveLangSenseBot:
                 self.show_edit_menu(message, user_id)
                 
             elif text == '✅ حفظ التغييرات':
-                self.save_company_changes(message, user_id)
+                self.save_company_changes(message)
                 
             elif text == '❌ إلغاء':
                 del self.user_states[user_id]
@@ -1883,8 +1902,9 @@ class ComprehensiveLangSenseBot:
         self.send_message(message['chat']['id'], edit_options, edit_keyboard)
         self.user_states[user_id] = 'editing_company_menu'
     
-    def save_company_changes(self, message, user_id):
+    def save_company_changes(self, message):
         """حفظ تغييرات الشركة"""
+        user_id = message['from']['id']
         try:
             companies = []
             updated_company = self.edit_company_data[user_id]
