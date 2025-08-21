@@ -740,13 +740,13 @@ class ComprehensiveLangSenseBot:
         # معالجة التسجيل
         if user_id in self.user_states:
             state = self.user_states[user_id]
-            if state.startswith('registering'):
+            if isinstance(state, str) and state.startswith('registering'):
                 self.handle_registration(message)
                 return
-            elif 'deposit' in state:
+            elif isinstance(state, str) and 'deposit' in state:
                 self.process_deposit_flow(message)
                 return
-            elif 'withdraw' in state:
+            elif isinstance(state, str) and 'withdraw' in state:
                 self.process_withdrawal_flow(message)
                 return
             elif isinstance(state, dict) and state.get('step') == 'selecting_payment_method':
@@ -774,39 +774,41 @@ class ComprehensiveLangSenseBot:
             # معالجة حالات الأدمن الخاصة
             if user_id in self.user_states:
                 admin_state = self.user_states[user_id]
-                if admin_state == 'admin_broadcasting':
-                    self.send_broadcast_message(message, text)
-                    return
-                elif admin_state.startswith('adding_company_'):
-                    self.handle_company_wizard(message)
-                    return
-                elif admin_state.startswith('editing_company_') or admin_state == 'selecting_company_edit':
-                    self.handle_company_edit_wizard(message)
-                    return
-                elif admin_state == 'confirming_company_delete':
-                    self.handle_company_delete_confirmation(message)
-                    return
-                elif admin_state.startswith('deleting_company_'):
-                    company_id = admin_state.replace('deleting_company_', '')
-                    self.finalize_company_delete(message, company_id)
-                    return
-                elif admin_state == 'sending_user_message_id':
-                    self.handle_user_message_id(message)
-                    return
-                elif admin_state.startswith('sending_user_message_'):
-                    customer_id = admin_state.replace('sending_user_message_', '')
-                    self.handle_user_message_content(message, customer_id)
-                    return
-                elif admin_state == 'selecting_method_to_edit':
-                    self.handle_method_edit_selection(message)
-                    return
-                elif admin_state == 'selecting_method_to_delete':
-                    self.handle_method_delete_selection(message)
-                    return
-                elif admin_state.startswith('editing_method_'):
-                    method_id = admin_state.replace('editing_method_', '')
-                    self.handle_method_edit_data(message, method_id)
-                    return
+                if isinstance(admin_state, str):
+                    if admin_state == 'admin_broadcasting':
+                        self.send_broadcast_message(message, text)
+                        return
+                    elif admin_state.startswith('adding_company_'):
+                        self.handle_company_wizard(message)
+                        return
+                    elif admin_state.startswith('editing_company_') or admin_state == 'selecting_company_edit':
+                        self.handle_company_edit_wizard(message)
+                        return
+                    elif admin_state == 'confirming_company_delete':
+                        self.handle_company_delete_confirmation(message)
+                        return
+                    elif admin_state.startswith('deleting_company_'):
+                        company_id = admin_state.replace('deleting_company_', '')
+                        self.finalize_company_delete(message, company_id)
+                        return
+                    elif admin_state == 'sending_user_message_id':
+                        self.handle_user_message_id(message)
+                        return
+                    elif admin_state.startswith('sending_user_message_'):
+                        customer_id = admin_state.replace('sending_user_message_', '')
+                        self.handle_user_message_content(message, customer_id)
+                        return
+                    elif admin_state == 'selecting_method_to_edit':
+                        self.handle_method_edit_selection(message)
+                        return
+                    elif admin_state == 'selecting_method_to_delete':
+                        self.handle_method_delete_selection(message)
+                        return
+                    elif admin_state.startswith('editing_method_'):
+                        method_id = admin_state.replace('editing_method_', '')
+                        self.handle_method_edit_data(message, method_id)
+                        return
+
             
             # معالجة النصوص والأزرار للأدمن
             self.handle_admin_actions(message)
@@ -901,9 +903,9 @@ class ComprehensiveLangSenseBot:
         elif text == '➕ إضافة وسيلة دفع':
             self.start_add_payment_method(message)
         elif text == '✏️ تعديل وسيلة دفع':
-            self.start_edit_payment_method(message)
+            self.send_message(message['chat']['id'], "استخدم الأوامر النصية: تعديل_وسيلة_دفع ID_الوسيلة البيانات_الجديدة", self.admin_keyboard())
         elif text == '🗑️ حذف وسيلة دفع':
-            self.start_delete_payment_method(message)
+            self.send_message(message['chat']['id'], "استخدم الأوامر النصية: حذف_وسيلة_دفع ID_الوسيلة", self.admin_keyboard())
         elif text == '📊 عرض وسائل الدفع':
             self.show_all_payment_methods(message)
         elif text == '🏠 القائمة الرئيسية':
