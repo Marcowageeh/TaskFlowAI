@@ -944,6 +944,7 @@ class ComprehensiveLangSenseBot:
         """معالجة إجراءات الأدمن"""
         text = message['text']
         chat_id = message['chat']['id']
+        user_id = message['from']['id']
         
         # الأزرار الرئيسية
         if text == '📋 الطلبات المعلقة':
