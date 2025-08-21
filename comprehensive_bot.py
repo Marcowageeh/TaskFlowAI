@@ -217,7 +217,8 @@ class ComprehensiveLangSenseBot:
                 [{'text': '✅ إلغاء حظر'}, {'text': '📝 إضافة شركة'}],
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
-                [{'text': '📋 نسخ أوامر سريعة'}, {'text': '🏠 القائمة الرئيسية'}]
+                [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
+                [{'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
             'one_time_keyboard': False
@@ -789,6 +790,13 @@ class ComprehensiveLangSenseBot:
                     company_id = admin_state.replace('deleting_company_', '')
                     self.finalize_company_delete(message, company_id)
                     return
+                elif admin_state == 'sending_user_message_id':
+                    self.handle_user_message_id(message)
+                    return
+                elif admin_state.startswith('sending_user_message_'):
+                    customer_id = admin_state.replace('sending_user_message_', '')
+                    self.handle_user_message_content(message, customer_id)
+                    return
             
             # معالجة النصوص والأزرار للأدمن
             self.handle_admin_actions(message)
@@ -878,6 +886,8 @@ class ComprehensiveLangSenseBot:
             self.show_complaints_admin(message)
         elif text == '📋 نسخ أوامر سريعة':
             self.show_quick_copy_commands(message)
+        elif text == '📧 إرسال رسالة لعميل':
+            self.start_send_user_message(message)
         elif text == '➕ إضافة وسيلة دفع':
             self.start_add_payment_method(message)
         elif text == '✏️ تعديل وسيلة دفع':
@@ -1921,6 +1931,11 @@ class ComprehensiveLangSenseBot:
 • `اضافة_شركة فودافون_كاش both محفظة_الكترونية`
 • `حذف_شركة 1737570855`
 
+💳 **أوامر وسائل الدفع:**
+• `اضافة_وسيلة_دفع 1 بنك_الأهلي حساب_بنكي SA123456789012345678`
+• `حذف_وسيلة_دفع 123456`
+• `تعديل_وسيلة_دفع 123456 SA987654321098765432`
+
 👥 **أوامر إدارة المستخدمين:**
 • `بحث أحمد`
 • `بحث C123456`
@@ -2786,6 +2801,148 @@ class ComprehensiveLangSenseBot:
             if company['id'] == str(company_id):
                 return company
         return None
+    
+    def start_send_user_message(self, message):
+        """بدء إرسال رسالة لعميل محدد"""
+        user_id = message['from']['id']
+        
+        instruction_text = """📧 إرسال رسالة لعميل محدد
+        
+📝 أدخل رقم العميل الذي تريد إرسال رسالة إليه:
+
+مثال: C123456
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], instruction_text)
+        self.user_states[user_id] = 'sending_user_message_id'
+    
+    def handle_user_message_id(self, message):
+        """معالجة رقم العميل لإرسال الرسالة"""
+        user_id = message['from']['id']
+        customer_id = message.get('text', '').strip()
+        
+        if customer_id == '/cancel':
+            del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "تم إلغاء إرسال الرسالة", self.admin_keyboard())
+            return
+        
+        # البحث عن العميل
+        user_found = None
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['customer_id'] == customer_id:
+                        user_found = row
+                        break
+        except:
+            pass
+        
+        if not user_found:
+            self.send_message(message['chat']['id'], 
+                            f"❌ لم يتم العثور على عميل برقم: {customer_id}\n\nيرجى التحقق من الرقم والمحاولة مرة أخرى:")
+            return
+        
+        # عرض معلومات العميل وطلب الرسالة
+        customer_info = f"""✅ تم العثور على العميل:
+
+👤 الاسم: {user_found['name']}
+📱 الهاتف: {user_found['phone']}
+🆔 رقم العميل: {user_found['customer_id']}
+📅 تاريخ التسجيل: {user_found['registration_date']}
+🚫 الحالة: {'محظور' if user_found.get('is_banned') == 'yes' else 'نشط'}
+
+📝 الآن أدخل الرسالة التي تريد إرسالها لهذا العميل:
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], customer_info)
+        self.user_states[user_id] = f'sending_user_message_{customer_id}'
+    
+    def handle_user_message_content(self, message, customer_id):
+        """معالجة محتوى الرسالة وإرسالها"""
+        user_id = message['from']['id']
+        message_content = message.get('text', '').strip()
+        
+        if message_content == '/cancel':
+            del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "تم إلغاء إرسال الرسالة", self.admin_keyboard())
+            return
+        
+        if not message_content:
+            self.send_message(message['chat']['id'], "❌ الرسالة فارغة. يرجى كتابة الرسالة:")
+            return
+        
+        # البحث عن معرف التليجرام للعميل
+        target_telegram_id = None
+        customer_name = ""
+        
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['customer_id'] == customer_id:
+                        target_telegram_id = row['user_id']
+                        customer_name = row['name']
+                        break
+        except:
+            pass
+        
+        if not target_telegram_id:
+            self.send_message(message['chat']['id'], 
+                            f"❌ لم يتم العثور على معرف التليجرام للعميل {customer_id}", 
+                            self.admin_keyboard())
+            del self.user_states[user_id]
+            return
+        
+        # إرسال الرسالة للعميل
+        admin_info = self.find_user(user_id)
+        admin_name = admin_info.get('name', 'الإدارة') if admin_info else 'الإدارة'
+        
+        customer_message = f"""📧 رسالة من الإدارة
+        
+من: {admin_name}
+التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+━━━━━━━━━━━━━━━━━━━━
+
+{message_content}
+
+━━━━━━━━━━━━━━━━━━━━
+
+💬 للرد على هذه الرسالة، استخدم قسم الشكاوى في النظام"""
+        
+        # محاولة إرسال الرسالة
+        try:
+            response = self.send_message(int(target_telegram_id), customer_message)
+            
+            # إشعار الأدمن بنجاح الإرسال
+            success_msg = f"""✅ تم إرسال الرسالة بنجاح!
+
+📧 إلى العميل: {customer_name} ({customer_id})
+📅 وقت الإرسال: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+📝 محتوى الرسالة:
+{message_content}"""
+            
+            self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            
+        except Exception as e:
+            # فشل في الإرسال
+            error_msg = f"""❌ فشل في إرسال الرسالة!
+
+🎯 العميل: {customer_name} ({customer_id})
+⚠️ السبب: العميل قد يكون حظر البوت أو حذف المحادثة
+
+💡 يمكنك التواصل معه عبر:
+📱 الهاتف المسجل في النظام
+📧 البريد الإلكتروني (إن وجد)"""
+            
+            self.send_message(message['chat']['id'], error_msg, self.admin_keyboard())
+        
+        # حذف الحالة
+        del self.user_states[user_id]
 
 if __name__ == "__main__":
     # جلب التوكن
