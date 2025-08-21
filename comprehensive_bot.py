@@ -1087,14 +1087,15 @@ class ComprehensiveLangSenseBot:
         elif text.startswith('تعديل_اعداد '):
             self.update_setting_simple(message, text)
         elif text == '✅ حفظ الشركة':
-            # التعامل مع حفظ الشركة من المعالج
-            if user_id in self.user_states and self.user_states[user_id].startswith('add_company_confirm'):
-                self.confirm_add_company(message, text)
+            # التعامل مع حفظ الشركة من المعالج المتقدم
+            if user_id in self.user_states and self.user_states[user_id] == 'confirming_company':
+                # استدعاء معالج إضافة الشركة المتقدم
+                self.handle_add_company_wizard(message)
             else:
                 self.send_message(chat_id, "❌ لا توجد شركة للحفظ. ابدأ بإضافة شركة جديدة أولاً.", self.admin_keyboard())
         elif text == '✅ حفظ التغييرات':
             # التعامل مع حفظ تغييرات الشركة
-            if user_id in self.user_states and self.user_states[user_id].startswith('edit_company_confirm'):
+            if user_id in self.user_states and self.user_states[user_id] == 'editing_company_menu':
                 self.save_company_changes(message)
             else:
                 self.send_message(chat_id, "❌ لا توجد تغييرات للحفظ. ابدأ بتعديل شركة أولاً.", self.admin_keyboard())
