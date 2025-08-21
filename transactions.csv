@@ -1,1 +1,4 @@
 ﻿id,customer_id,telegram_id,name,type,company,wallet_number,amount,exchange_address,status,date,admin_note,processed_by
+DEP20250821174254,C000002,6004754785,Yasoo,deposit,STC Pay__85565225525,,100.0,,approved,2025-08-21 17:42,,6986450780
+DEP20250821174340,C000002,6004754785,Yasoo,deposit,فودافون كاش__845888,,500.0,,pending,2025-08-21 17:43,,
+WTH20250821174602,C000002,6004754785,Yasoo,withdraw,البنك الأهلي,,5845665555,,pending,2025-08-21 17:46,🏢 فودافون كاش,

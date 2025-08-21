@@ -449,7 +449,7 @@ class ComprehensiveLangSenseBot:
             del self.user_states[user_id]
             
             # إشعار فوري للأدمن بطلب الإيداع
-            for admin_id in self.admin_user_ids:
+            for admin_id in self.admin_ids:
                 try:
                     admin_notification = f"""🔔 طلب إيداع جديد
 
@@ -636,7 +636,7 @@ class ComprehensiveLangSenseBot:
                 del self.user_states[user_id]
                 
                 # إشعار فوري للأدمن
-                for admin_id in self.admin_user_ids:
+                for admin_id in self.admin_ids:
                     try:
                         admin_notification = f"""🔔 طلب سحب جديد
 
