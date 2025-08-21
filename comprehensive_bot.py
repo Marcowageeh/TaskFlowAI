@@ -786,7 +786,17 @@ class ComprehensiveLangSenseBot:
                     self.send_broadcast_message(message, text)
                     return
                 elif admin_state.startswith('adding_company_'):
-                    self.handle_add_company_wizard(message, text)
+                    self.handle_company_wizard(message)
+                    return
+                elif admin_state.startswith('editing_company_') or admin_state == 'selecting_company_edit':
+                    self.handle_company_edit_wizard(message)
+                    return
+                elif admin_state == 'confirming_company_delete':
+                    self.handle_company_delete_confirmation(message)
+                    return
+                elif admin_state.startswith('deleting_company_'):
+                    company_id = admin_state.replace('deleting_company_', '')
+                    self.finalize_company_delete(message, company_id)
                     return
             
             # معالجة النصوص والأزرار للأدمن
@@ -856,7 +866,17 @@ class ComprehensiveLangSenseBot:
         elif text == '📝 إضافة شركة':
             self.start_add_company_wizard(message)
         elif text == '⚙️ إدارة الشركات':
-            self.show_companies_management(message)
+            self.show_companies_management_enhanced(message)
+        elif text == '➕ إضافة شركة جديدة':
+            self.prompt_add_company(message)
+        elif text == '✏️ تعديل شركة':
+            self.prompt_edit_company(message)
+        elif text == '🗑️ حذف شركة':
+            self.prompt_delete_company(message)
+        elif text == '🔄 تحديث القائمة':
+            self.show_companies_management_enhanced(message)
+        elif text == '↩️ العودة للوحة الأدمن':
+            self.handle_admin_panel(message)
         elif text == '📍 إدارة العناوين':
             self.show_addresses_management(message)
         elif text == '⚙️ إعدادات النظام':
@@ -1322,29 +1342,533 @@ class ComprehensiveLangSenseBot:
         self.send_message(message['chat']['id'], unban_help, self.admin_keyboard())
     
     def prompt_add_company(self, message):
-        """طلب إضافة شركة"""
-        add_company_help = """📝 إضافة شركة جديدة
+        """بدء معالج إضافة شركة التفاعلي"""
+        help_text = """🏢 معالج إضافة شركة جديدة
+        
+سأطلب منك المعلومات خطوة بخطوة:
 
-📋 الفورمة الصحيحة:
-اضافة_شركة اسم_الشركة نوع_الخدمة التفاصيل
+📝 أولاً، أرسل اسم الشركة:
+مثال: البنك الأهلي، مدى، STC Pay، فودافون كاش"""
+        
+        self.send_message(message['chat']['id'], help_text)
+        self.user_states[message['from']['id']] = 'adding_company_name'
+    
+    def handle_company_wizard(self, message):
+        """معالج إضافة الشركة التفاعلي"""
+        user_id = message['from']['id']
+        state = self.user_states.get(user_id)
+        text = message.get('text', '').strip()
+        
+        if state == 'adding_company_name':
+            # حفظ اسم الشركة
+            if not hasattr(self, 'temp_company_data'):
+                self.temp_company_data = {}
+            if user_id not in self.temp_company_data:
+                self.temp_company_data[user_id] = {}
+            
+            self.temp_company_data[user_id]['name'] = text
+            
+            # طلب نوع الخدمة
+            service_keyboard = {
+                'keyboard': [
+                    [{'text': '💳 إيداع فقط'}, {'text': '💰 سحب فقط'}],
+                    [{'text': '🔄 إيداع وسحب معاً'}],
+                    [{'text': '❌ إلغاء'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(message['chat']['id'], 
+                f"✅ تم حفظ اسم الشركة: {text}\n\n🔧 الآن اختر نوع الخدمة:", 
+                service_keyboard)
+            self.user_states[user_id] = 'adding_company_type'
+            
+        elif state == 'adding_company_type':
+            # حفظ نوع الخدمة
+            if text == '💳 إيداع فقط':
+                service_type = 'deposit'
+                service_display = 'إيداع فقط'
+            elif text == '💰 سحب فقط':
+                service_type = 'withdraw'
+                service_display = 'سحب فقط'
+            elif text == '🔄 إيداع وسحب معاً':
+                service_type = 'both'
+                service_display = 'إيداع وسحب'
+            elif text == '❌ إلغاء':
+                del self.user_states[user_id]
+                if hasattr(self, 'temp_company_data') and user_id in self.temp_company_data:
+                    del self.temp_company_data[user_id]
+                self.send_message(message['chat']['id'], "❌ تم إلغاء إضافة الشركة", self.admin_keyboard())
+                return
+            else:
+                self.send_message(message['chat']['id'], "❌ اختر نوع الخدمة من الأزرار المتاحة")
+                return
+            
+            self.temp_company_data[user_id]['type'] = service_type
+            self.temp_company_data[user_id]['type_display'] = service_display
+            
+            # طلب التفاصيل
+            self.send_message(message['chat']['id'], 
+                f"✅ نوع الخدمة: {service_display}\n\n📋 الآن أرسل تفاصيل الشركة:\nمثال: محفظة إلكترونية، حساب بنكي رقم 1234567890، خدمة دفع رقمية")
+            self.user_states[user_id] = 'adding_company_details'
+            
+        elif state == 'adding_company_details':
+            # حفظ التفاصيل وإنهاء العملية
+            self.temp_company_data[user_id]['details'] = text
+            
+            # عرض ملخص التأكيد
+            company_data = self.temp_company_data[user_id]
+            confirm_text = f"""📊 ملخص الشركة الجديدة:
 
-🔸 أنواع الخدمة:
-• deposit = إيداع فقط
-• withdraw = سحب فقط  
-• both = إيداع وسحب
+🏢 الاسم: {company_data['name']}
+⚡ نوع الخدمة: {company_data['type_display']}
+📋 التفاصيل: {company_data['details']}
 
-✅ أمثلة جاهزة للنسخ:
+هل تريد حفظ هذه الشركة؟"""
+            
+            confirm_keyboard = {
+                'keyboard': [
+                    [{'text': '✅ حفظ الشركة'}, {'text': '❌ إلغاء'}],
+                    [{'text': '🔄 تعديل الاسم'}, {'text': '🔧 تعديل النوع'}, {'text': '📝 تعديل التفاصيل'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(message['chat']['id'], confirm_text, confirm_keyboard)
+            self.user_states[user_id] = 'confirming_company'
+            
+        elif state == 'confirming_company':
+            company_data = self.temp_company_data[user_id]
+            
+            if text == '✅ حفظ الشركة':
+                # حفظ الشركة في الملف
+                company_id = str(int(datetime.now().timestamp()))
+                
+                try:
+                    with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([company_id, company_data['name'], company_data['type'], company_data['details'], 'active'])
+                    
+                    success_msg = f"""🎉 تم إضافة الشركة بنجاح!
 
-▫️ اضافة_شركة بنك_الراجحي deposit حساب_بنكي_رقم_1234567890
+🆔 المعرف: {company_id}
+🏢 الاسم: {company_data['name']}
+⚡ النوع: {company_data['type_display']}
+📋 التفاصيل: {company_data['details']}
 
-▫️ اضافة_شركة فودافون_كاش withdraw محفظة_الكترونية
+الشركة متاحة الآن للعملاء ✅"""
+                    
+                    self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                    
+                except Exception as e:
+                    self.send_message(message['chat']['id'], f"❌ فشل في حفظ الشركة: {str(e)}", self.admin_keyboard())
+                
+                # تنظيف البيانات المؤقتة
+                del self.user_states[user_id]
+                if user_id in self.temp_company_data:
+                    del self.temp_company_data[user_id]
+                    
+            elif text == '❌ إلغاء':
+                del self.user_states[user_id]
+                if user_id in self.temp_company_data:
+                    del self.temp_company_data[user_id]
+                self.send_message(message['chat']['id'], "❌ تم إلغاء إضافة الشركة", self.admin_keyboard())
+                
+            elif text == '🔄 تعديل الاسم':
+                self.send_message(message['chat']['id'], f"📝 الاسم الحالي: {company_data['name']}\n\nأرسل الاسم الجديد:")
+                self.user_states[user_id] = 'adding_company_name'
+                
+            elif text == '🔧 تعديل النوع':
+                service_keyboard = {
+                    'keyboard': [
+                        [{'text': '💳 إيداع فقط'}, {'text': '💰 سحب فقط'}],
+                        [{'text': '🔄 إيداع وسحب معاً'}],
+                        [{'text': '❌ إلغاء'}]
+                    ],
+                    'resize_keyboard': True,
+                    'one_time_keyboard': True
+                }
+                self.send_message(message['chat']['id'], f"🔧 النوع الحالي: {company_data['type_display']}\n\nاختر النوع الجديد:", service_keyboard)
+                self.user_states[user_id] = 'adding_company_type'
+                
+            elif text == '📝 تعديل التفاصيل':
+                self.send_message(message['chat']['id'], f"📋 التفاصيل الحالية: {company_data['details']}\n\nأرسل التفاصيل الجديدة:")
+                self.user_states[user_id] = 'adding_company_details'
+                
+            else:
+                self.send_message(message['chat']['id'], "❌ اختر من الأزرار المتاحة")
+    
+    def prompt_edit_company(self, message):
+        """بدء معالج تعديل الشركة"""
+        # عرض الشركات المتاحة للتعديل
+        companies_text = "🔧 تعديل الشركات:\n\n"
+        
+        try:
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    status = "✅" if row.get('is_active') == 'active' else "❌"
+                    companies_text += f"{status} {row['id']} - {row['name']}\n"
+                    companies_text += f"   📋 {row['type']} - {row['details']}\n\n"
+        except:
+            companies_text += "❌ لا توجد شركات\n\n"
+        
+        companies_text += "📝 أرسل رقم معرف الشركة التي تريد تعديلها:"
+        
+        self.send_message(message['chat']['id'], companies_text)
+        self.user_states[message['from']['id']] = 'selecting_company_edit'
+    
+    def handle_company_edit_wizard(self, message):
+        """معالج تعديل الشركة التفاعلي"""
+        user_id = message['from']['id']
+        state = self.user_states.get(user_id)
+        text = message.get('text', '').strip()
+        
+        if state == 'selecting_company_edit':
+            # البحث عن الشركة
+            company_found = None
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['id'] == text:
+                            company_found = row
+                            break
+            except:
+                pass
+            
+            if not company_found:
+                self.send_message(message['chat']['id'], f"❌ لم يتم العثور على شركة بالمعرف: {text}")
+                return
+            
+            # حفظ بيانات الشركة للتعديل
+            if not hasattr(self, 'edit_company_data'):
+                self.edit_company_data = {}
+            self.edit_company_data[user_id] = company_found
+            
+            # عرض بيانات الشركة الحالية
+            type_display = {'deposit': 'إيداع فقط', 'withdraw': 'سحب فقط', 'both': 'إيداع وسحب'}.get(company_found['type'], company_found['type'])
+            
+            edit_options = f"""📊 بيانات الشركة الحالية:
 
-▫️ اضافة_شركة STC_Pay both محفظة_رقمية_شاملة
+🆔 المعرف: {company_found['id']}
+🏢 الاسم: {company_found['name']}
+⚡ النوع: {type_display}
+📋 التفاصيل: {company_found['details']}
+🔘 الحالة: {'نشط' if company_found.get('is_active') == 'active' else 'غير نشط'}
 
-▫️ اضافة_شركة مدى both خدمات_دفع_متعددة
+ماذا تريد تعديل؟"""
+            
+            edit_keyboard = {
+                'keyboard': [
+                    [{'text': '📝 تعديل الاسم'}, {'text': '🔧 تعديل النوع'}],
+                    [{'text': '📋 تعديل التفاصيل'}, {'text': '🔘 تغيير الحالة'}],
+                    [{'text': '✅ حفظ التغييرات'}, {'text': '❌ إلغاء'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(message['chat']['id'], edit_options, edit_keyboard)
+            self.user_states[user_id] = 'editing_company_menu'
+            
+        elif state == 'editing_company_menu':
+            if text == '📝 تعديل الاسم':
+                current_name = self.edit_company_data[user_id]['name']
+                self.send_message(message['chat']['id'], f"📝 الاسم الحالي: {current_name}\n\nأرسل الاسم الجديد:")
+                self.user_states[user_id] = 'editing_company_name'
+                
+            elif text == '🔧 تعديل النوع':
+                service_keyboard = {
+                    'keyboard': [
+                        [{'text': '💳 إيداع فقط'}, {'text': '💰 سحب فقط'}],
+                        [{'text': '🔄 إيداع وسحب معاً'}],
+                        [{'text': '↩️ العودة للقائمة'}]
+                    ],
+                    'resize_keyboard': True,
+                    'one_time_keyboard': True
+                }
+                current_type = {'deposit': 'إيداع فقط', 'withdraw': 'سحب فقط', 'both': 'إيداع وسحب'}.get(self.edit_company_data[user_id]['type'])
+                self.send_message(message['chat']['id'], f"🔧 النوع الحالي: {current_type}\n\nاختر النوع الجديد:", service_keyboard)
+                self.user_states[user_id] = 'editing_company_type'
+                
+            elif text == '📋 تعديل التفاصيل':
+                current_details = self.edit_company_data[user_id]['details']
+                self.send_message(message['chat']['id'], f"📋 التفاصيل الحالية: {current_details}\n\nأرسل التفاصيل الجديدة:")
+                self.user_states[user_id] = 'editing_company_details'
+                
+            elif text == '🔘 تغيير الحالة':
+                current_status = self.edit_company_data[user_id].get('is_active', 'active')
+                new_status = 'inactive' if current_status == 'active' else 'active'
+                status_text = 'نشط' if new_status == 'active' else 'غير نشط'
+                
+                self.edit_company_data[user_id]['is_active'] = new_status
+                self.send_message(message['chat']['id'], f"✅ تم تغيير حالة الشركة إلى: {status_text}")
+                
+                # العودة لقائمة التعديل
+                self.show_edit_menu(message, user_id)
+                
+            elif text == '✅ حفظ التغييرات':
+                self.save_company_changes(message, user_id)
+                
+            elif text == '❌ إلغاء':
+                del self.user_states[user_id]
+                if user_id in self.edit_company_data:
+                    del self.edit_company_data[user_id]
+                self.send_message(message['chat']['id'], "❌ تم إلغاء تعديل الشركة", self.admin_keyboard())
+                
+        elif state == 'editing_company_name':
+            self.edit_company_data[user_id]['name'] = text
+            self.send_message(message['chat']['id'], f"✅ تم تحديث الاسم إلى: {text}")
+            self.show_edit_menu(message, user_id)
+            
+        elif state == 'editing_company_type':
+            if text == '💳 إيداع فقط':
+                self.edit_company_data[user_id]['type'] = 'deposit'
+                self.send_message(message['chat']['id'], "✅ تم تحديث النوع إلى: إيداع فقط")
+            elif text == '💰 سحب فقط':
+                self.edit_company_data[user_id]['type'] = 'withdraw'
+                self.send_message(message['chat']['id'], "✅ تم تحديث النوع إلى: سحب فقط")
+            elif text == '🔄 إيداع وسحب معاً':
+                self.edit_company_data[user_id]['type'] = 'both'
+                self.send_message(message['chat']['id'], "✅ تم تحديث النوع إلى: إيداع وسحب")
+            elif text == '↩️ العودة للقائمة':
+                pass
+            else:
+                self.send_message(message['chat']['id'], "❌ اختر نوع الخدمة من الأزرار المتاحة")
+                return
+            
+            self.show_edit_menu(message, user_id)
+            
+        elif state == 'editing_company_details':
+            self.edit_company_data[user_id]['details'] = text
+            self.send_message(message['chat']['id'], f"✅ تم تحديث التفاصيل إلى: {text}")
+            self.show_edit_menu(message, user_id)
+    
+    def show_edit_menu(self, message, user_id):
+        """عرض قائمة تعديل الشركة"""
+        company_data = self.edit_company_data[user_id]
+        type_display = {'deposit': 'إيداع فقط', 'withdraw': 'سحب فقط', 'both': 'إيداع وسحب'}.get(company_data['type'], company_data['type'])
+        
+        edit_options = f"""📊 بيانات الشركة المحدثة:
 
-💡 نصيحة: انسخ أي مثال وغير الاسم والتفاصيل فقط!"""
-        self.send_message(message['chat']['id'], add_company_help, self.admin_keyboard())
+🆔 المعرف: {company_data['id']}
+🏢 الاسم: {company_data['name']}
+⚡ النوع: {type_display}
+📋 التفاصيل: {company_data['details']}
+🔘 الحالة: {'نشط' if company_data.get('is_active') == 'active' else 'غير نشط'}
+
+ماذا تريد تعديل؟"""
+        
+        edit_keyboard = {
+            'keyboard': [
+                [{'text': '📝 تعديل الاسم'}, {'text': '🔧 تعديل النوع'}],
+                [{'text': '📋 تعديل التفاصيل'}, {'text': '🔘 تغيير الحالة'}],
+                [{'text': '✅ حفظ التغييرات'}, {'text': '❌ إلغاء'}]
+            ],
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], edit_options, edit_keyboard)
+        self.user_states[user_id] = 'editing_company_menu'
+    
+    def save_company_changes(self, message, user_id):
+        """حفظ تغييرات الشركة"""
+        try:
+            companies = []
+            updated_company = self.edit_company_data[user_id]
+            
+            # قراءة جميع الشركات
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == updated_company['id']:
+                        companies.append(updated_company)
+                    else:
+                        companies.append(row)
+            
+            # كتابة الملف المحدث
+            with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                fieldnames = ['id', 'name', 'type', 'details', 'is_active']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(companies)
+            
+            type_display = {'deposit': 'إيداع فقط', 'withdraw': 'سحب فقط', 'both': 'إيداع وسحب'}.get(updated_company['type'])
+            
+            success_msg = f"""🎉 تم حفظ التغييرات بنجاح!
+
+🆔 المعرف: {updated_company['id']}
+🏢 الاسم: {updated_company['name']}
+⚡ النوع: {type_display}
+📋 التفاصيل: {updated_company['details']}
+🔘 الحالة: {'نشط' if updated_company.get('is_active') == 'active' else 'غير نشط'}"""
+            
+            self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            
+        except Exception as e:
+            self.send_message(message['chat']['id'], f"❌ فشل في حفظ التغييرات: {str(e)}", self.admin_keyboard())
+        
+        # تنظيف البيانات المؤقتة
+        del self.user_states[user_id]
+        if user_id in self.edit_company_data:
+            del self.edit_company_data[user_id]
+    
+    def show_companies_management_enhanced(self, message):
+        """عرض إدارة الشركات المحسن"""
+        companies_text = "🏢 إدارة الشركات المتقدمة\n\n"
+        
+        try:
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                company_count = 0
+                for row in reader:
+                    company_count += 1
+                    status = "✅" if row.get('is_active') == 'active' else "❌"
+                    type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(row['type'], row['type'])
+                    companies_text += f"{status} **{row['name']}** (ID: {row['id']})\n"
+                    companies_text += f"   🔧 {type_display} | 📋 {row['details']}\n\n"
+                
+                if company_count == 0:
+                    companies_text += "❌ لا توجد شركات مسجلة\n\n"
+                else:
+                    companies_text += f"📊 إجمالي الشركات: {company_count}\n\n"
+                    
+        except:
+            companies_text += "❌ خطأ في قراءة ملف الشركات\n\n"
+        
+        # أزرار الإدارة المتقدمة
+        management_keyboard = {
+            'keyboard': [
+                [{'text': '➕ إضافة شركة جديدة'}, {'text': '✏️ تعديل شركة'}],
+                [{'text': '🗑️ حذف شركة'}, {'text': '🔄 تحديث القائمة'}],
+                [{'text': '📋 تصدير البيانات'}, {'text': '↩️ العودة للوحة الأدمن'}]
+            ],
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        companies_text += """🔧 خيارات الإدارة:
+• ➕ إضافة شركة جديدة - معالج تفاعلي خطوة بخطوة
+• ✏️ تعديل شركة - تعديل البيانات الموجودة
+• 🗑️ حذف شركة - حذف نهائي بأمان
+• 🔄 تحديث القائمة - إعادة تحميل البيانات"""
+        
+        self.send_message(message['chat']['id'], companies_text, management_keyboard)
+    
+    def prompt_delete_company(self, message):
+        """بدء معالج حذف الشركة بأمان"""
+        companies_text = "🗑️ حذف الشركات:\n\n"
+        
+        try:
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    status = "✅" if row.get('is_active') == 'active' else "❌"
+                    companies_text += f"{status} {row['id']} - {row['name']}\n"
+                    companies_text += f"   📋 {row['type']} - {row['details']}\n\n"
+        except:
+            companies_text += "❌ لا توجد شركات\n\n"
+        
+        companies_text += "⚠️ أرسل رقم معرف الشركة للحذف:\n(تحذير: الحذف نهائي ولا يمكن التراجع عنه)"
+        
+        self.send_message(message['chat']['id'], companies_text)
+        self.user_states[message['from']['id']] = 'confirming_company_delete'
+    
+    def handle_company_delete_confirmation(self, message):
+        """معالج تأكيد حذف الشركة"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        company_id = text
+        
+        # البحث عن الشركة
+        company_found = None
+        try:
+            with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == company_id:
+                        company_found = row
+                        break
+        except:
+            pass
+        
+        if not company_found:
+            self.send_message(message['chat']['id'], f"❌ لم يتم العثور على شركة بالمعرف: {company_id}")
+            del self.user_states[user_id]
+            return
+        
+        # عرض تأكيد الحذف
+        confirm_text = f"""⚠️ تأكيد حذف الشركة:
+
+🆔 المعرف: {company_found['id']}
+🏢 الاسم: {company_found['name']}
+📋 النوع: {company_found['type']}
+📝 التفاصيل: {company_found['details']}
+
+⚠️ هذا الإجراء نهائي ولا يمكن التراجع عنه!
+هل أنت متأكد من الحذف؟"""
+        
+        confirm_keyboard = {
+            'keyboard': [
+                [{'text': '🗑️ نعم، احذف الشركة'}, {'text': '❌ إلغاء'}]
+            ],
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], confirm_text, confirm_keyboard)
+        self.user_states[user_id] = f'deleting_company_{company_id}'
+    
+    def finalize_company_delete(self, message, company_id):
+        """إنهاء حذف الشركة"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text == '🗑️ نعم، احذف الشركة':
+            # تنفيذ الحذف
+            companies = []
+            deleted_company = None
+            
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['id'] != company_id:
+                            companies.append(row)
+                        else:
+                            deleted_company = row
+                
+                # كتابة الملف بدون الشركة المحذوفة
+                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'name', 'type', 'details', 'is_active']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(companies)
+                
+                if deleted_company:
+                    success_msg = f"""✅ تم حذف الشركة بنجاح!
+
+🗑️ الشركة المحذوفة:
+🆔 المعرف: {deleted_company['id']}
+🏢 الاسم: {deleted_company['name']}
+📋 النوع: {deleted_company['type']}"""
+                    
+                    self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                else:
+                    self.send_message(message['chat']['id'], "❌ فشل في العثور على الشركة للحذف", self.admin_keyboard())
+                    
+            except Exception as e:
+                self.send_message(message['chat']['id'], f"❌ فشل في حذف الشركة: {str(e)}", self.admin_keyboard())
+        
+        elif text == '❌ إلغاء':
+            self.send_message(message['chat']['id'], "❌ تم إلغاء حذف الشركة", self.admin_keyboard())
+        
+        # تنظيف الحالة
+        del self.user_states[user_id]
     
     def start_add_company_wizard(self, message):
         """بدء معالج إضافة شركة تفاعلي"""

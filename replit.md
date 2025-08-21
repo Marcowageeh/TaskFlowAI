@@ -45,7 +45,13 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Confirmation Code**: Required verification code from customer before processing
 
 ### Company & Address Management
-- **Company Management**: Simple add/delete commands without complex formatting
+- **Enhanced Company Management**: Interactive step-by-step wizards for adding, editing, and deleting companies
+- **User-Friendly Interface**: Button-based navigation with confirmation dialogs and real-time preview
+- **Advanced Features**: 
+  - Add Company Wizard: Name → Service Type (buttons) → Details → Confirmation with edit options
+  - Edit Company Wizard: Select company → Edit any field → Live preview → Safe save
+  - Delete Company: Safety confirmation with company details display
+  - Management Dashboard: Enhanced view with company count, status indicators, and quick actions
 - **Exchange Address**: Single active address that can be updated easily
 - **Flexibility**: Dynamic company list for both deposits and withdrawals
 
