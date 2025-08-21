@@ -622,7 +622,7 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "❌ كود التأكيد قصير جداً. يرجى إدخال كود صحيح:")
                 return
             
-            # التأكيد النهائي
+            # التأكيد النهائي مع أزرار
             final_confirm_text = f"""📋 مراجعة نهائية لطلب السحب:
 
 🏢 الشركة: {company_name}
@@ -631,9 +631,19 @@ class ComprehensiveLangSenseBot:
 📍 عنوان السحب: {withdrawal_address}
 🔐 كود التأكيد: {confirmation_code}
 
-أرسل "تأكيد" لإرسال الطلب أو "إلغاء" للعودة"""
+اختر من الأزرار أدناه:"""
             
-            self.send_message(message['chat']['id'], final_confirm_text)
+            # إنشاء لوحة مفاتيح التأكيد
+            confirm_keyboard = {
+                'keyboard': [
+                    [{'text': '✅ تأكيد الطلب'}, {'text': '❌ إلغاء'}],
+                    [{'text': '🏠 القائمة الرئيسية'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(message['chat']['id'], final_confirm_text, confirm_keyboard)
             self.user_states[user_id] = f'withdraw_final_confirm_{company_id}_{company_name}_{wallet_number}_{amount}_{withdrawal_address}_{confirmation_code}'
             
         elif state.startswith('withdraw_final_confirm_'):
@@ -647,13 +657,8 @@ class ComprehensiveLangSenseBot:
             withdrawal_address = parts[4] if len(parts) > 4 else ''
             confirmation_code = parts[5] if len(parts) > 5 else ''
             
-            # احتمالات التأكيد المتعددة
-            confirm_options = ['تأكيد', 'تاكيد', 'تأكييد', 'تاكييد', 'موافق', 'موافقة', 'اوافق', 'أوافق', 'نعم', 'ok', 'yes', 'confirm', 'اكيد', 'أكيد']
-            cancel_options = ['إلغاء', 'الغاء', 'لا', 'no', 'cancel', 'رفض', 'توقف', 'إيقاف']
-            
-            text_clean = text.lower().strip()
-            
-            if any(opt in text_clean for opt in confirm_options):
+            # معالجة أزرار التأكيد والإلغاء
+            if text == '✅ تأكيد الطلب':
                 # إنشاء المعاملة
                 user = self.find_user(user_id)
                 trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -702,11 +707,24 @@ class ComprehensiveLangSenseBot:
                     except:
                         pass
                 
-            elif any(opt in text_clean for opt in cancel_options):
-                self.send_message(message['chat']['id'], "تم إلغاء العملية", self.main_keyboard())
+            elif text == '❌ إلغاء':
+                user = self.find_user(user_id)
+                self.send_message(message['chat']['id'], "❌ تم إلغاء طلب السحب", self.main_keyboard(user.get('language', 'ar')))
                 del self.user_states[user_id]
+                
+            elif text == '🏠 القائمة الرئيسية':
+                user = self.find_user(user_id)
+                del self.user_states[user_id]
+                welcome_text = f"""🏠 مرحباً بك في النظام المالي
+
+👤 العميل: {user.get('name', 'غير محدد')}
+🆔 رقم العميل: {user.get('customer_id', 'غير محدد')}
+
+اختر الخدمة المطلوبة:"""
+                self.send_message(message['chat']['id'], welcome_text, self.main_keyboard(user.get('language', 'ar')))
+                
             else:
-                self.send_message(message['chat']['id'], "يرجى الإجابة بكلمة تأكيد (تأكيد، موافق، نعم) أو إلغاء (إلغاء، لا، رفض):")
+                self.send_message(message['chat']['id'], "❌ يرجى اختيار من الأزرار المتاحة")
             
         # (معالج قديم محذوف لأن نظام السحب تم تحديثه)
     

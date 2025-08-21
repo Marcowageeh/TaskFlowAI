@@ -29,6 +29,7 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Navigation**: Button-based keyboards for all interactions
 - **Language**: Arabic primary with simple interface
 - **Flow**: Linear process flows for deposits and withdrawals
+- **Withdrawal Confirmation**: Button-based final confirmation with "✅ تأكيد الطلب", "❌ إلغاء", and "🏠 القائمة الرئيسية"
 - **Simplicity**: No complex commands or syntax requirements
 
 ### Authentication & Authorization
