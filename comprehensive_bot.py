@@ -271,14 +271,50 @@ class ComprehensiveLangSenseBot:
                 return
             
             self.user_states[user_id] = f'registering_phone_{name}'
-            self.send_message(message['chat']['id'], "ممتاز! الآن أرسل رقم هاتفك (مع رمز البلد):")
+            
+            # كيبورد مشاركة جهة الاتصال
+            contact_keyboard = {
+                'keyboard': [
+                    [{'text': '📱 مشاركة رقم الهاتف', 'request_contact': True}],
+                    [{'text': '✍️ كتابة الرقم يدوياً'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            phone_message = """ممتاز! الآن أرسل رقم هاتفك:
+
+📱 يمكنك مشاركة رقمك مباشرة بالضغط على "📱 مشاركة رقم الهاتف"
+✍️ أو اكتب الرقم يدوياً مع رمز البلد (مثال: +966501234567)"""
+            
+            self.send_message(message['chat']['id'], phone_message, contact_keyboard)
             
         elif state.startswith('registering_phone_'):
             name = state.replace('registering_phone_', '')
-            phone = message['text'].strip()
             
-            if len(phone) < 10:
-                self.send_message(message['chat']['id'], "❌ رقم هاتف غير صحيح. يرجى إدخال رقم صحيح:")
+            # التحقق من نوع الرسالة
+            if 'contact' in message:
+                # مشاركة جهة الاتصال
+                phone = message['contact']['phone_number']
+                if not phone.startswith('+'):
+                    phone = '+' + phone
+            elif 'text' in message:
+                text = message['text'].strip()
+                
+                if text == '✍️ كتابة الرقم يدوياً':
+                    manual_text = """✍️ اكتب رقم هاتفك مع رمز البلد:
+
+مثال: +966501234567
+مثال: +201234567890"""
+                    self.send_message(message['chat']['id'], manual_text)
+                    return
+                
+                phone = text
+                if len(phone) < 10:
+                    self.send_message(message['chat']['id'], "❌ رقم هاتف غير صحيح. يرجى إدخال رقم صحيح مع رمز البلد:")
+                    return
+            else:
+                self.send_message(message['chat']['id'], "❌ يرجى مشاركة جهة الاتصال أو كتابة الرقم:")
                 return
             
             # إنشاء رقم عميل تلقائي
@@ -725,10 +761,10 @@ class ComprehensiveLangSenseBot:
     
     def process_message(self, message):
         """معالج الرسائل الرئيسي"""
-        if 'text' not in message:
+        if 'text' not in message and 'contact' not in message:
             return
         
-        text = message['text']
+        text = message.get('text', '')
         chat_id = message['chat']['id']
         user_id = message['from']['id']
         
@@ -737,18 +773,24 @@ class ComprehensiveLangSenseBot:
             self.handle_start(message)
             return
         
-        # معالجة التسجيل
+        # معالجة الحالات المختلفة
         if user_id in self.user_states:
             state = self.user_states[user_id]
+            
+            # معالجة التسجيل
             if isinstance(state, str) and state.startswith('registering'):
                 self.handle_registration(message)
                 return
-            elif isinstance(state, str) and 'deposit' in state:
-                self.process_deposit_flow(message)
+            
+            # معالجة الإيداع والسحب
+            elif isinstance(state, str) and ('deposit' in state or 'withdraw' in state):
+                if 'deposit' in state:
+                    self.process_deposit_flow(message)
+                else:
+                    self.process_withdrawal_flow(message)
                 return
-            elif isinstance(state, str) and 'withdraw' in state:
-                self.process_withdrawal_flow(message)
-                return
+            
+            # معالجة اختيار وسيلة الدفع
             elif isinstance(state, dict) and state.get('step') == 'selecting_payment_method':
                 self.handle_payment_method_selection(message, text)
                 return
