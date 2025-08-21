@@ -239,7 +239,8 @@ class ComprehensiveLangSenseBot:
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
                 [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
-                [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🏠 القائمة الرئيسية'}]
+                [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🔄 إعادة تعيين النظام'}],
+                [{'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
             'one_time_keyboard': False
@@ -254,8 +255,8 @@ class ComprehensiveLangSenseBot:
         for company in companies:
             keyboard.append([{'text': f"🏢 {company['name']}"}])
         
-        # إضافة زر العودة
-        keyboard.append([{'text': '🔙 العودة للقائمة الرئيسية'}])
+        # إضافة أزرار العودة وإعادة التعيين
+        keyboard.append([{'text': '🔙 العودة للقائمة الرئيسية'}, {'text': '🔄 إعادة تعيين النظام'}])
         
         return {'keyboard': keyboard, 'resize_keyboard': True, 'one_time_keyboard': True}
     
@@ -302,7 +303,8 @@ class ComprehensiveLangSenseBot:
             contact_keyboard = {
                 'keyboard': [
                     [{'text': '📱 مشاركة رقم الهاتف', 'request_contact': True}],
-                    [{'text': '✍️ كتابة الرقم يدوياً'}]
+                    [{'text': '✍️ كتابة الرقم يدوياً'}],
+                    [{'text': '🔄 إعادة تعيين النظام'}]
                 ],
                 'resize_keyboard': True,
                 'one_time_keyboard': True
@@ -646,7 +648,7 @@ class ComprehensiveLangSenseBot:
             confirm_keyboard = {
                 'keyboard': [
                     [{'text': '✅ تأكيد الطلب'}, {'text': '❌ إلغاء'}],
-                    [{'text': '🏠 القائمة الرئيسية'}]
+                    [{'text': '🔄 إعادة تعيين النظام'}, {'text': '🏠 القائمة الرئيسية'}]
                 ],
                 'resize_keyboard': True,
                 'one_time_keyboard': True
@@ -2493,7 +2495,7 @@ class ComprehensiveLangSenseBot:
                 'keyboard': [
                     [{'text': '💰 إيداع فقط'}, {'text': '💸 سحب فقط'}],
                     [{'text': '🔄 إيداع وسحب معاً'}],
-                    [{'text': '❌ إلغاء'}]
+                    [{'text': '❌ إلغاء'}, {'text': '🔄 إعادة تعيين النظام'}]
                 ],
                 'resize_keyboard': True,
                 'one_time_keyboard': True
