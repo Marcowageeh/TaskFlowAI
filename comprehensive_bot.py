@@ -152,20 +152,11 @@ class ComprehensiveLangSenseBot:
             with open('companies.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    # تنظيف البيانات من المسافات الزائدة
-                    row = {k: v.strip() if isinstance(v, str) else v for k, v in row.items()}
-                    
                     if row.get('is_active', 'active') == 'active':
                         if service_type is None or row['type'] in [service_type, 'both']:
                             companies.append(row)
-        except Exception as e:
-            # إنشاء الملف إذا لم يكن موجوداً
-            try:
-                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
-            except:
-                pass
+        except:
+            pass
         return companies
     
     def get_exchange_address(self):
@@ -1364,25 +1355,10 @@ class ComprehensiveLangSenseBot:
             self.send_message(message['chat']['id'], error_text, self.admin_keyboard())
             return
         
-        # إنشاء معرف جديد مع ضمان عدم التكرار
-        company_id = str(int(datetime.now().timestamp() * 1000) % 10000000000)
+        # إنشاء معرف جديد
+        company_id = str(int(datetime.now().timestamp()))
         
         try:
-            # فحص إذا كان الملف موجود وإنشاؤه مع headers إذا لم يكن موجوداً
-            file_exists = True
-            try:
-                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
-                    pass
-            except FileNotFoundError:
-                file_exists = False
-            
-            # إنشاء الملف مع headers إذا لم يكن موجوداً
-            if not file_exists:
-                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
-            
-            # إضافة الشركة الجديدة
             with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerow([company_id, company_name, service_type, details, 'active'])

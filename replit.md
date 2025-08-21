@@ -4,8 +4,6 @@
 
 LangSense is a streamlined Telegram bot for financial services with Arabic support. The bot provides a simplified financial ecosystem focusing on deposit/withdrawal processing with company selection, wallet number input, and exchange address management. Features include user registration, admin approval system, and comprehensive transaction tracking.
 
-**Current Status**: System has been simplified and stabilized as of August 21, 2025. All complex features causing instability have been removed in favor of a clean, reliable implementation.
-
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -19,8 +17,7 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Bot Framework**: Simplified HTTP-based Telegram Bot API implementation using Python standard library
 - **Language**: Python 3 with urllib and json for lightweight operation
 - **State Management**: Simple dictionary-based state management for user sessions
-- **Implementation**: Streamlined single-file solution (simple_improved_bot.py) without external dependencies
-- **Stability Focus**: Prioritizes reliability over complex features
+- **Implementation**: Streamlined single-file solution without external dependencies
 
 ### Database Layer
 - **Database**: CSV files for simplicity and transparency

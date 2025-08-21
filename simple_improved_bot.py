@@ -207,7 +207,7 @@ class SimpleLangSenseBot:
             self.user_states[user_id] = f'registering_phone_{name}'
             self.send_message(message['chat']['id'], "ممتاز! الآن أرسل رقم هاتفك:")
             
-        elif state and state.startswith('registering_phone_'):
+        elif state.startswith('registering_phone_'):
             name = state.replace('registering_phone_', '')
             phone = message['text'].strip()
             
@@ -305,10 +305,9 @@ class SimpleLangSenseBot:
             
             with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                if user:
-                    writer.writerow([trans_id, user['customer_id'], user['name'], 'deposit', 
-                                   company_name, wallet_number, amount, '', 'pending', 
-                                   datetime.now().strftime('%Y-%m-%d %H:%M'), ''])
+                writer.writerow([trans_id, user['customer_id'], user['name'], 'deposit', 
+                               company_name, wallet_number, amount, '', 'pending', 
+                               datetime.now().strftime('%Y-%m-%d %H:%M'), ''])
             
             # رسالة تأكيد للعميل
             confirmation = f"""✅ تم إرسال طلب الإيداع
@@ -323,8 +322,7 @@ class SimpleLangSenseBot:
             self.send_message(message['chat']['id'], confirmation, self.main_keyboard())
             
             # إشعار الأدمن
-            if user:
-                admin_msg = f"""🔔 طلب إيداع جديد
+            admin_msg = f"""🔔 طلب إيداع جديد
 
 🆔 {trans_id}
 👤 {user['name']} ({user['customer_id']})
@@ -333,8 +331,8 @@ class SimpleLangSenseBot:
 💰 {amount} ريال
 
 استخدم: موافقة {trans_id} أو رفض {trans_id} سبب"""
-                
-                self.notify_admins(admin_msg)
+            
+            self.notify_admins(admin_msg)
             del self.user_states[user_id]
     
     def process_withdrawal_flow(self, message):
@@ -413,12 +411,11 @@ class SimpleLangSenseBot:
                 trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
                 exchange_address = self.get_exchange_address()
                 
-                if user:
-                    with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([trans_id, user['customer_id'], user['name'], 'withdraw', 
-                                       company_name, wallet_number, amount, exchange_address, 'pending', 
-                                       datetime.now().strftime('%Y-%m-%d %H:%M'), ''])
+                with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([trans_id, user['customer_id'], user['name'], 'withdraw', 
+                                   company_name, wallet_number, amount, exchange_address, 'pending', 
+                                   datetime.now().strftime('%Y-%m-%d %H:%M'), ''])
                 
                 # رسالة تأكيد للعميل
                 confirmation = f"""✅ تم إرسال طلب السحب
@@ -434,8 +431,7 @@ class SimpleLangSenseBot:
                 self.send_message(message['chat']['id'], confirmation, self.main_keyboard())
                 
                 # إشعار الأدمن
-                if user:
-                    admin_msg = f"""🔔 طلب سحب جديد
+                admin_msg = f"""🔔 طلب سحب جديد
 
 🆔 {trans_id}
 👤 {user['name']} ({user['customer_id']})
@@ -445,8 +441,8 @@ class SimpleLangSenseBot:
 📍 {exchange_address}
 
 استخدم: موافقة {trans_id} أو رفض {trans_id} سبب"""
-                    
-                    self.notify_admins(admin_msg)
+                
+                self.notify_admins(admin_msg)
                 del self.user_states[user_id]
             else:
                 self.send_message(message['chat']['id'], "تم إلغاء العملية", self.main_keyboard())

@@ -1,6 +1,2 @@
-id,name,type,details,is_active
+﻿id,name,type,details,is_active
 1,MELBET,both,محفظة الكترونية,active
-1737570860,البنك الأهلي,deposit,حساب بنكي,active
-1737570870,فودافون كاش,both,محفظة إلكترونية,active
-1737570880,مدى,both,محفظة رقمية,active
-1737570890,STC Pay,both,خدمات دفع,active

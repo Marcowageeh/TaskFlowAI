@@ -1,2 +1,6 @@
-﻿id,company_id,method_name,method_type,account_data,additional_info,status,created_date
-1,1,حساب بنكي أساسي,bank_account,رقم الحساب: 1234567890، البنك: الأهلي,رسوم التحويل: 5 ريال,active,2024-01-01
+id,company_id,method_name,method_type,account_data,additional_info,status,created_date
+1,1,حساب بنكي أساسي,bank_account,"رقم الحساب: 1234567890، البنك: الأهلي","رسوم التحويل: 5 ريال",active,2024-01-01
+2,1,حساب توفير,savings_account,"رقم الحساب: 9876543210، البنك: الأهلي","حد أدنى: 100 ريال",active,2024-01-01
+3,2,محفظة فودافون,ewallet,"رقم المحفظة: 01234567890","رسوم: 2%، حد أقصى يومي: 5000",active,2024-01-01
+4,2,حساب بنكي,bank_account,"رقم الحساب: 5555666677، البنك: الراجحي","تحويل فوري متاح",active,2024-01-01
+5,3,حساب استثماري,investment_account,"رقم الحساب: 1111222233، شركة الاستثمار","عمولة: 1.5%",active,2024-01-01
