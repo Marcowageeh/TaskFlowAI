@@ -2719,7 +2719,8 @@ class ComprehensiveLangSenseBot:
 
 📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
                         
-                        result = self.send_message(user['telegram_id'], broadcast_msg, self.main_keyboard(user.get('language', 'ar')))
+                        # إرسال الرسالة بدون لوحة مفاتيح حتى لا تؤثر على الأزرار الحالية
+                        result = self.send_message(user['telegram_id'], broadcast_msg, None)
                         if result and result.get('ok'):
                             sent_count += 1
                         else:
@@ -3468,7 +3469,7 @@ class ComprehensiveLangSenseBot:
             del self.user_states[user_id]
             return
         
-        # إرسال الرسالة للعميل
+        # إرسال الرسالة للعميل بدون لوحة مفاتيح حتى لا تؤثر على الأزرار
         admin_info = self.find_user(user_id)
         admin_name = admin_info.get('name', 'الإدارة') if admin_info else 'الإدارة'
         
@@ -3485,9 +3486,9 @@ class ComprehensiveLangSenseBot:
 
 💬 للرد على هذه الرسالة، استخدم قسم الشكاوى في النظام"""
         
-        # محاولة إرسال الرسالة
+        # محاولة إرسال الرسالة بدون لوحة مفاتيح
         try:
-            response = self.send_message(int(target_telegram_id), customer_message)
+            response = self.send_message(int(target_telegram_id), customer_message, None)
             
             # إشعار الأدمن بنجاح الإرسال
             success_msg = f"""✅ تم إرسال الرسالة بنجاح!

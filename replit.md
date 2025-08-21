@@ -68,6 +68,8 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Direction**: Bidirectional (admin ↔ user) at completion + instant admin alerts for new transactions
 - **Admin Alerts**: Immediate notifications when users submit deposit/withdrawal requests
 - **Customer Alerts**: Instant notifications upon approval/rejection with full transaction details
+- **Broadcast Messages**: Sent without keyboard markup to prevent interference with existing user interfaces
+- **Direct Admin Messages**: Individual customer messages sent without keyboard to preserve current user state
 
 ### Admin Interface
 - **Commands**: Simplified text-based commands with enhanced copy functionality
