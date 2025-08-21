@@ -37,23 +37,30 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Session Management**: Simple state tracking for multi-step processes
 
 ### Financial Services Workflow
-- **Deposit Process**: Company Selection → Wallet Number → Amount → Completion
-- **Withdrawal Process**: Company Selection → Wallet Number → Amount → **Withdrawal Address Entry** → **Confirmation Code Entry** → Final Confirmation
+- **Enhanced Deposit Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → Completion
+- **Enhanced Withdrawal Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → **Withdrawal Address Entry** → **Confirmation Code Entry** → Final Confirmation
+- **Payment Method Integration**: Users select specific payment methods for each company (bank accounts, e-wallets, etc.)
 - **Status Tracking**: Simple pending/approved/rejected states
 - **Admin Approval**: Direct text-based commands (موافقة/رفض)
 - **Withdrawal Address**: Users must specify withdrawal address for each request
 - **Confirmation Code**: Required verification code from customer before processing
 
-### Company & Address Management
+### Company & Payment Method Management
 - **Enhanced Company Management**: Interactive step-by-step wizards for adding, editing, and deleting companies
+- **Comprehensive Payment Method System**: 
+  - Multiple payment methods per company (bank accounts, e-wallets, investment accounts)
+  - Customizable payment data fields for each method
+  - Admin CRUD operations (add, edit, delete) for payment methods
+  - User selection of payment methods during transactions
 - **User-Friendly Interface**: Button-based navigation with confirmation dialogs and real-time preview
 - **Advanced Features**: 
   - Add Company Wizard: Name → Service Type (buttons) → Details → Confirmation with edit options
+  - Payment Method Management: Add/Edit/Delete methods with custom data fields
   - Edit Company Wizard: Select company → Edit any field → Live preview → Safe save
   - Delete Company: Safety confirmation with company details display
   - Management Dashboard: Enhanced view with company count, status indicators, and quick actions
 - **Exchange Address**: Single active address that can be updated easily
-- **Flexibility**: Dynamic company list for both deposits and withdrawals
+- **Flexibility**: Dynamic company list for both deposits and withdrawals with method selection
 
 ### Notifications
 - **Timing**: Only at completion of operations (approval/rejection) + instant notifications for new requests
@@ -63,10 +70,19 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Customer Alerts**: Instant notifications upon approval/rejection with full transaction details
 
 ### Admin Interface
-- **Commands**: Simplified text-based commands
+- **Commands**: Simplified text-based commands with enhanced copy functionality
 - **Format**: Natural language without complex syntax
+- **Enhanced Copy System**: 
+  - Quick copy commands for each transaction (approve/reject)
+  - Quick copy responses for complaints with templates
+  - Comprehensive quick copy commands section with all admin operations
+  - Pre-formatted commands for easy copying and modification
+- **Payment Method Commands**: 
+  - `اضافة_وسيلة_دفع ID_الشركة اسم_الوسيلة نوع_الوسيلة البيانات`
+  - `حذف_وسيلة_دفع ID_الوسيلة`
+  - `تعديل_وسيلة_دفع ID_الوسيلة البيانات_الجديدة`
 - **Examples**: "موافقة DEP123", "رفض WTH456 سبب", "اضف_شركة اسم نوع تفاصيل"
-- **Navigation**: Button-based admin panel
+- **Navigation**: Button-based admin panel with payment method management
 
 ### Error Handling & Logging
 - **Logging**: Basic console logging for monitoring

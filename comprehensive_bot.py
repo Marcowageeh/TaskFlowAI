@@ -370,21 +370,14 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "❌ اختيار غير صحيح. يرجى اختيار شركة من القائمة:")
                 return
             
-            # الانتقال لمرحلة إدخال رقم المحفظة
-            wallet_text = f"""تم اختيار: {selected_company['name']}
-
-💳 الآن أدخل رقم محفظتك/حسابك في {selected_company['name']}:
-
-📋 تفاصيل الشركة:
-{selected_company['details']}"""
-            
-            self.send_message(message['chat']['id'], wallet_text)
-            self.user_states[user_id] = f'deposit_wallet_{selected_company["id"]}_{selected_company["name"]}'
+            # عرض وسائل الدفع للشركة المختارة
+            self.show_payment_method_selection(message, selected_company['id'], 'deposit')
             
         elif state.startswith('deposit_wallet_'):
-            parts = state.split('_', 2)
+            parts = state.split('_', 3)
             company_id = parts[2]
             company_name = parts[3] if len(parts) > 3 else ''
+            method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = text.strip()
             
             if len(wallet_number) < 5:
@@ -401,13 +394,14 @@ class ComprehensiveLangSenseBot:
 💡 أدخل المبلغ بالأرقام فقط (مثال: 500)"""
             
             self.send_message(message['chat']['id'], amount_text)
-            self.user_states[user_id] = f'deposit_amount_{company_id}_{company_name}_{wallet_number}'
+            self.user_states[user_id] = f'deposit_amount_{company_id}_{company_name}_{method_id}_{wallet_number}'
             
         elif state.startswith('deposit_amount_'):
-            parts = state.split('_', 3)
+            parts = state.split('_', 4)
             company_id = parts[2]
             company_name = parts[3]
-            wallet_number = parts[4] if len(parts) > 4 else ''
+            method_id = parts[4] if len(parts) > 4 else ''
+            wallet_number = parts[5] if len(parts) > 5 else ''
             
             try:
                 amount = float(text.strip())
@@ -487,21 +481,14 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "❌ اختيار غير صحيح. يرجى اختيار شركة من القائمة:")
                 return
             
-            # الانتقال لمرحلة إدخال رقم المحفظة
-            wallet_text = f"""تم اختيار: {selected_company['name']}
-
-💳 الآن أدخل رقم محفظتك/حسابك في {selected_company['name']}:
-
-📋 تفاصيل الشركة:
-{selected_company['details']}"""
-            
-            self.send_message(message['chat']['id'], wallet_text)
-            self.user_states[user_id] = f'withdraw_wallet_{selected_company["id"]}_{selected_company["name"]}'
+            # عرض وسائل الدفع للشركة المختارة
+            self.show_payment_method_selection(message, selected_company['id'], 'withdraw')
             
         elif state.startswith('withdraw_wallet_'):
-            parts = state.split('_', 2)
+            parts = state.split('_', 3)
             company_id = parts[2]
             company_name = parts[3] if len(parts) > 3 else ''
+            method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = text.strip()
             
             if len(wallet_number) < 5:
@@ -520,13 +507,14 @@ class ComprehensiveLangSenseBot:
 💡 أدخل المبلغ بالأرقام فقط (مثال: 1000)"""
             
             self.send_message(message['chat']['id'], amount_text)
-            self.user_states[user_id] = f'withdraw_amount_{company_id}_{company_name}_{wallet_number}'
+            self.user_states[user_id] = f'withdraw_amount_{company_id}_{company_name}_{method_id}_{wallet_number}'
             
         elif state.startswith('withdraw_amount_'):
-            parts = state.split('_', 3)
+            parts = state.split('_', 4)
             company_id = parts[2]
             company_name = parts[3]
-            wallet_number = parts[4] if len(parts) > 4 else ''
+            method_id = parts[4] if len(parts) > 4 else ''
+            wallet_number = parts[5] if len(parts) > 5 else ''
             
             try:
                 amount = float(text.strip())
@@ -760,6 +748,9 @@ class ComprehensiveLangSenseBot:
             elif 'withdraw' in state:
                 self.process_withdrawal_flow(message)
                 return
+            elif state.get('step') == 'selecting_payment_method':
+                self.handle_payment_method_selection(message, text)
+                return
         
         # فحص المستخدم المسجل
         user = self.find_user(user_id)
@@ -854,7 +845,7 @@ class ComprehensiveLangSenseBot:
         elif text == '🔍 البحث':
             self.prompt_admin_search(message)
         elif text == '💳 وسائل الدفع':
-            self.show_payment_methods_admin(message)
+            self.show_payment_methods_management(message)
         elif text == '📊 الإحصائيات':
             self.show_detailed_stats(message)
         elif text == '📢 إرسال جماعي':
@@ -877,6 +868,8 @@ class ComprehensiveLangSenseBot:
             self.show_companies_management_enhanced(message)
         elif text == '↩️ العودة للوحة الأدمن':
             self.handle_admin_panel(message)
+        elif text == '↩️ العودة':
+            self.show_payment_methods_management(message)
         elif text == '📍 إدارة العناوين':
             self.show_addresses_management(message)
         elif text == '⚙️ إعدادات النظام':
@@ -885,6 +878,14 @@ class ComprehensiveLangSenseBot:
             self.show_complaints_admin(message)
         elif text == '📋 نسخ أوامر سريعة':
             self.show_quick_copy_commands(message)
+        elif text == '➕ إضافة وسيلة دفع':
+            self.start_add_payment_method(message)
+        elif text == '✏️ تعديل وسيلة دفع':
+            self.start_edit_payment_method(message)
+        elif text == '🗑️ حذف وسيلة دفع':
+            self.start_delete_payment_method(message)
+        elif text == '📊 عرض وسائل الدفع':
+            self.show_all_payment_methods(message)
         elif text == '🏠 القائمة الرئيسية':
             user = self.find_user(message['from']['id'])
             if user:
@@ -1942,6 +1943,140 @@ class ComprehensiveLangSenseBot:
         
         self.send_message(message['chat']['id'], commands_text, self.admin_keyboard())
     
+    def get_payment_methods_by_company(self, company_id, transaction_type=None):
+        """الحصول على وسائل الدفع لشركة معينة"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if (row['company_id'] == str(company_id) and 
+                        row['status'] == 'active'):
+                        methods.append(row)
+        except:
+            pass
+        return methods
+    
+    def show_payment_method_selection(self, message, company_id, transaction_type):
+        """عرض وسائل الدفع المتاحة للشركة"""
+        user_id = message['from']['id']
+        methods = self.get_payment_methods_by_company(company_id, transaction_type)
+        
+        if not methods:
+            self.send_message(message['chat']['id'], 
+                            "❌ لا توجد وسائل دفع متاحة لهذه الشركة حالياً",
+                            self.get_companies_keyboard(transaction_type))
+            return
+        
+        methods_text = f"💳 اختر وسيلة الدفع:\n\n"
+        keyboard = []
+        
+        for method in methods:
+            methods_text += f"🔹 {method['method_name']}\n"
+            methods_text += f"   📋 {method['method_type']}\n"
+            if method['additional_info']:
+                methods_text += f"   💡 {method['additional_info']}\n"
+            methods_text += "\n"
+            
+            keyboard.append([{'text': method['method_name']}])
+        
+        keyboard.append([{'text': '🔙 العودة لاختيار الشركة'}])
+        
+        # حفظ الحالة
+        self.user_states[user_id] = {
+            'step': 'selecting_payment_method',
+            'company_id': company_id,
+            'transaction_type': transaction_type,
+            'methods': methods
+        }
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def add_payment_method(self, company_id, method_name, method_type, account_data, additional_info=""):
+        """إضافة وسيلة دفع جديدة"""
+        try:
+            # إنشاء ID جديد
+            new_id = int(time.time() * 1000) % 1000000
+            
+            # إضافة الوسيلة الجديدة
+            with open('payment_methods.csv', 'a', encoding='utf-8-sig', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    new_id,
+                    company_id,
+                    method_name,
+                    method_type,
+                    account_data,
+                    additional_info,
+                    'active',
+                    datetime.now().strftime('%Y-%m-%d')
+                ])
+            return True
+        except:
+            return False
+    
+    def edit_payment_method(self, method_id, new_data):
+        """تعديل وسيلة دفع موجودة"""
+        try:
+            methods = []
+            found = False
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        # تحديث البيانات
+                        for key, value in new_data.items():
+                            if key in row:
+                                row[key] = value
+                        found = True
+                    methods.append(row)
+            
+            if found:
+                # كتابة البيانات المحدثة
+                with open('payment_methods.csv', 'w', encoding='utf-8-sig', newline='') as f:
+                    if methods:
+                        fieldnames = methods[0].keys()
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(methods)
+                return True
+        except:
+            pass
+        return False
+    
+    def delete_payment_method(self, method_id):
+        """حذف وسيلة دفع"""
+        try:
+            methods = []
+            found = False
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] != str(method_id):
+                        methods.append(row)
+                    else:
+                        found = True
+            
+            if found:
+                with open('payment_methods.csv', 'w', encoding='utf-8-sig', newline='') as f:
+                    if methods:
+                        fieldnames = methods[0].keys()
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(methods)
+                return True
+        except:
+            pass
+        return False
+    
     def start_add_company_wizard(self, message):
         """بدء معالج إضافة شركة تفاعلي"""
         wizard_text = """🧙‍♂️ معالج إضافة الشركة
@@ -2477,6 +2612,180 @@ class ComprehensiveLangSenseBot:
             search_text += "\n"
         
         self.send_message(message['chat']['id'], search_text, self.admin_keyboard())
+    
+    def show_payment_methods_management(self, message):
+        """عرض لوحة إدارة وسائل الدفع"""
+        methods_text = """💳 إدارة وسائل الدفع
+
+🏢 هذا القسم يسمح لك بإدارة وسائل الدفع لكل شركة:
+• إضافة وسائل دفع جديدة
+• تعديل بيانات الوسائل الموجودة  
+• حذف وسائل الدفع
+• عرض جميع الوسائل المتاحة
+
+اختر العملية المطلوبة:"""
+        
+        keyboard = [
+            [{'text': '➕ إضافة وسيلة دفع'}, {'text': '✏️ تعديل وسيلة دفع'}],
+            [{'text': '🗑️ حذف وسيلة دفع'}, {'text': '📊 عرض وسائل الدفع'}],
+            [{'text': '↩️ العودة للوحة الأدمن'}]
+        ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': False
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def show_all_payment_methods(self, message):
+        """عرض جميع وسائل الدفع المتاحة"""
+        methods_text = "💳 جميع وسائل الدفع:\n\n"
+        
+        try:
+            companies = self.get_companies()
+            company_names = {c['id']: c['name'] for c in companies}
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                methods_by_company = {}
+                
+                for row in reader:
+                    company_id = row['company_id']
+                    if company_id not in methods_by_company:
+                        methods_by_company[company_id] = []
+                    methods_by_company[company_id].append(row)
+                
+                for company_id, methods in methods_by_company.items():
+                    company_name = company_names.get(company_id, f"شركة #{company_id}")
+                    methods_text += f"🏢 **{company_name}**:\n"
+                    
+                    for method in methods:
+                        status_emoji = "✅" if method['status'] == 'active' else "❌"
+                        methods_text += f"  {status_emoji} {method['method_name']} (#{method['id']})\n"
+                        methods_text += f"      📋 النوع: {method['method_type']}\n"
+                        methods_text += f"      💳 البيانات: {method['account_data']}\n"
+                        if method['additional_info']:
+                            methods_text += f"      💡 ملاحظات: {method['additional_info']}\n"
+                        methods_text += "\n"
+                    methods_text += "▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
+        except:
+            methods_text += "❌ خطأ في قراءة البيانات"
+        
+        # إضافة أوامر النسخ السريع
+        methods_text += "\n📋 **أوامر إدارة سريعة:**\n"
+        methods_text += "• `اضافة_وسيلة_دفع ID_الشركة اسم_الوسيلة نوع_الوسيلة البيانات`\n"
+        methods_text += "• `تعديل_وسيلة_دفع ID_الوسيلة البيانات_الجديدة`\n"
+        methods_text += "• `حذف_وسيلة_دفع ID_الوسيلة`\n\n"
+        
+        methods_text += "💡 **مثال:**\n"
+        methods_text += "`اضافة_وسيلة_دفع 1 حساب_مدى bank_account رقم:1234567890`"
+        
+        keyboard = [
+            [{'text': '➕ إضافة وسيلة دفع'}, {'text': '✏️ تعديل وسيلة دفع'}],
+            [{'text': '🔄 تحديث القائمة'}, {'text': '↩️ العودة'}]
+        ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': False
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def start_add_payment_method(self, message):
+        """بدء إضافة وسيلة دفع جديدة"""
+        user_id = message['from']['id']
+        
+        # عرض الشركات المتاحة
+        companies = self.get_companies()
+        if not companies:
+            self.send_message(message['chat']['id'], 
+                            "❌ لا توجد شركات متاحة. يجب إضافة شركة أولاً", 
+                            self.admin_keyboard())
+            return
+        
+        companies_text = "🏢 اختر الشركة لإضافة وسيلة دفع لها:\n\n"
+        keyboard = []
+        
+        for company in companies:
+            companies_text += f"🔹 {company['name']} (#{company['id']})\n"
+            keyboard.append([{'text': f"{company['name']} (#{company['id']})"}])
+        
+        keyboard.append([{'text': '❌ إلغاء'}])
+        
+        self.user_states[user_id] = {
+            'step': 'adding_payment_method_select_company',
+            'companies': companies
+        }
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], companies_text, reply_keyboard)
+    
+    def handle_payment_method_selection(self, message, text):
+        """معالجة اختيار وسيلة الدفع"""
+        user_id = message['from']['id']
+        state = self.user_states.get(user_id, {})
+        
+        if text == '🔙 العودة لاختيار الشركة':
+            # العودة لاختيار الشركة
+            transaction_type = state.get('transaction_type')
+            if transaction_type == 'deposit':
+                self.start_deposit(message)
+            else:
+                self.start_withdrawal(message)
+            return
+        
+        # البحث عن وسيلة الدفع المختارة
+        methods = state.get('methods', [])
+        selected_method = None
+        
+        for method in methods:
+            if method['method_name'] == text:
+                selected_method = method
+                break
+        
+        if not selected_method:
+            self.send_message(message['chat']['id'], "❌ اختيار غير صحيح. يرجى اختيار وسيلة دفع من القائمة")
+            return
+        
+        # حفظ الوسيلة المختارة والانتقال للمرحلة التالية
+        transaction_type = state['transaction_type']
+        company_id = state['company_id']
+        company = self.get_company_by_id(company_id)
+        
+        # عرض تفاصيل الوسيلة وطلب رقم المحفظة
+        wallet_text = f"""✅ تم اختيار وسيلة الدفع: {selected_method['method_name']}
+
+💳 تفاصيل الوسيلة:
+📋 النوع: {selected_method['method_type']}
+🏢 الشركة: {company['name'] if company else 'غير محدد'}
+💡 معلومات: {selected_method['additional_info']}
+
+📝 الآن أدخل رقم محفظتك/حسابك:"""
+        
+        self.send_message(message['chat']['id'], wallet_text)
+        
+        # تحديث الحالة
+        if transaction_type == 'deposit':
+            self.user_states[user_id] = f'deposit_wallet_{company_id}_{company["name"]}_{selected_method["id"]}'
+        else:
+            self.user_states[user_id] = f'withdraw_wallet_{company_id}_{company["name"]}_{selected_method["id"]}'
+    
+    def get_company_by_id(self, company_id):
+        """الحصول على شركة بواسطة ID"""
+        companies = self.get_companies()
+        for company in companies:
+            if company['id'] == str(company_id):
+                return company
+        return None
 
 if __name__ == "__main__":
     # جلب التوكن
