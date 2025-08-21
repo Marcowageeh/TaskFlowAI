@@ -2451,10 +2451,10 @@ class ComprehensiveLangSenseBot:
         return False
     
     def delete_payment_method(self, method_id):
-        """حذف وسيلة دفع"""
+        """حذف وسيلة دفع مع إرجاع البيانات المحذوفة"""
         try:
             methods = []
-            found = False
+            deleted_method = None
             
             with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
@@ -2462,19 +2462,24 @@ class ComprehensiveLangSenseBot:
                     if row['id'] != str(method_id):
                         methods.append(row)
                     else:
-                        found = True
+                        deleted_method = row.copy()
             
-            if found:
+            if deleted_method:
+                # كتابة الملف حتى لو كان فارغ
                 with open('payment_methods.csv', 'w', encoding='utf-8-sig', newline='') as f:
-                    if methods:
-                        fieldnames = methods[0].keys()
-                        writer = csv.DictWriter(f, fieldnames=fieldnames)
-                        writer.writeheader()
+                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    if methods:  # فقط اكتب الصفوف إذا كانت موجودة
                         writer.writerows(methods)
-                return True
-        except:
-            pass
-        return False
+                
+                logger.info(f"تم حذف وسيلة الدفع {method_id}: {deleted_method.get('method_name', 'غير محدد')}")
+                return True, deleted_method
+            
+            return False, None
+        except Exception as e:
+            logger.error(f"خطأ في حذف وسيلة الدفع {method_id}: {e}")
+            return False, None
     
     def start_add_company_wizard(self, message):
         """بدء معالج إضافة شركة تفاعلي"""
@@ -3282,10 +3287,18 @@ class ComprehensiveLangSenseBot:
         if text.startswith('حذف '):
             method_id = text.replace('حذف ', '').strip()
             
+            # الحصول على بيانات الوسيلة قبل الحذف
+            method_to_delete = self.get_payment_method_by_id(method_id)
+            if not method_to_delete:
+                self.send_message(message['chat']['id'], f"❌ لم يتم العثور على وسيلة الدفع {method_id}", self.admin_keyboard())
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
+                return
+            
             # حذف وسيلة الدفع
             success, deleted_method = self.delete_payment_method(method_id)
             
-            if success:
+            if success and deleted_method:
                 company = self.get_company_by_id(deleted_method['company_id'])
                 company_name = company['name'] if company else 'غير محدد'
                 
@@ -3315,7 +3328,7 @@ class ComprehensiveLangSenseBot:
             self.show_payment_methods_management(message)
             return
         
-        # تحليل البيانات الجديدة
+        # تحليل البيانات الجديدة - تنسيق مبسط
         if '|' in text:
             parts = [part.strip() for part in text.split('|')]
             if len(parts) >= 3:
@@ -3324,68 +3337,82 @@ class ComprehensiveLangSenseBot:
                 new_account = parts[2]
                 new_info = parts[3] if len(parts) > 3 else ""
                 
-                # تحديث وسيلة الدفع مع التحقق من المعرف
+                # التحقق من وجود الوسيلة قبل التحديث
+                existing_method = self.get_payment_method_by_id(method_id)
+                if not existing_method:
+                    self.send_message(message['chat']['id'], f"❌ لم يتم العثور على وسيلة الدفع رقم {method_id}", self.admin_keyboard())
+                    if user_id in self.user_states:
+                        del self.user_states[user_id]
+                    return
+                
+                # تحديث وسيلة الدفع
                 logger.info(f"محاولة تحديث وسيلة الدفع - المعرف: {method_id}, الاسم: {new_name}, البيانات: {new_account}")
-                success = self.update_payment_method(method_id, new_name, new_type, new_account, new_info)
+                success = self.update_payment_method_safe(method_id, new_name, new_type, new_account, new_info)
                 
                 if success:
+                    # الحصول على بيانات الشركة
+                    company = self.get_company_by_id(existing_method['company_id'])
+                    company_name = company['name'] if company else 'غير محدد'
+                    
                     success_msg = f"""✅ تم تعديل وسيلة الدفع بنجاح!
 
 🆔 المعرف: {method_id}
-📋 الاسم الجديد: {new_name}
-💳 النوع الجديد: {new_type}
-💰 البيانات الجديدة: {new_account}
-💡 المعلومات الجديدة: {new_info if new_info else 'لا توجد'}"""
+🏢 الشركة: {company_name}
+📋 الاسم: {new_name}
+💳 النوع: {new_type}
+💰 البيانات: {new_account}
+💡 معلومات إضافية: {new_info if new_info else 'لا توجد'}"""
                     
                     self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
                 else:
-                    self.send_message(message['chat']['id'], "❌ فشل في تعديل وسيلة الدفع", self.admin_keyboard())
+                    self.send_message(message['chat']['id'], f"❌ فشل في تعديل وسيلة الدفع {method_id}", self.admin_keyboard())
             else:
-                self.send_message(message['chat']['id'], "❌ تنسيق غير صحيح. يجب أن يحتوي على 3 أجزاء على الأقل مفصولة بـ |")
+                self.send_message(message['chat']['id'], "❌ تنسيق غير صحيح!\n\nالتنسيق المطلوب:\nاسم_الوسيلة | نوع_الوسيلة | رقم_الحساب | معلومات_إضافية\n\nمثال:\nفودافون كاش | محفظة إلكترونية | 01012345678 | للدفع السريع")
                 return
         else:
-            self.send_message(message['chat']['id'], "❌ تنسيق غير صحيح. استخدم | للفصل بين البيانات")
+            self.send_message(message['chat']['id'], "❌ يجب استخدام | للفصل بين البيانات!\n\nمثال:\nفودافون كاش | محفظة إلكترونية | 01012345678 | للدفع السريع")
             return
         
         # تنظيف الحالة
         if user_id in self.user_states:
             del self.user_states[user_id]
     
-    def update_payment_method(self, method_id, new_name, new_type, new_account, new_info=""):
-        """تحديث وسيلة دفع موجودة - إصدار محسن"""
+    def update_payment_method_safe(self, method_id, new_name, new_type, new_account, new_info=""):
+        """تحديث آمن لوسيلة الدفع مع تحقق شامل"""
         try:
             methods = []
             updated = False
-            target_method = None
+            original_method = None
             
-            # قراءة جميع الوسائل أولاً
+            # قراءة الملف والبحث عن الوسيلة
             with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row['id'] == str(method_id):
-                        # تحديث الوسيلة المحددة فقط
+                        original_method = row.copy()
+                        # تحديث البيانات
                         row['method_name'] = new_name
                         row['method_type'] = new_type
                         row['account_data'] = new_account
                         row['additional_info'] = new_info
                         updated = True
-                        target_method = row.copy()
-                        logger.info(f"تم تحديث وسيلة الدفع {method_id}: {new_name} - {new_account}")
+                        logger.info(f"تم العثور على وسيلة الدفع {method_id} وتحديثها")
                     methods.append(row)
             
-            if updated and target_method:
-                # كتابة جميع الوسائل مع التأكد من التحديث الصحيح
-                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
-                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
-                    writer = csv.DictWriter(f, fieldnames=fieldnames)
-                    writer.writeheader()
-                    writer.writerows(methods)
-                
-                logger.info(f"✅ تم حفظ التحديث لوسيلة الدفع {method_id} في الملف")
-                return True
+            if not updated:
+                logger.error(f"لم يتم العثور على وسيلة الدفع {method_id}")
+                return False
             
-            logger.error(f"❌ لم يتم العثور على وسيلة الدفع {method_id}")
-            return False
+            # كتابة الملف المحدث
+            with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(methods)
+            
+            logger.info(f"✅ تم حفظ التحديث بنجاح - الوسيلة {method_id}: {new_name}")
+            return True
+            
         except Exception as e:
             logger.error(f"❌ خطأ في تحديث وسيلة الدفع {method_id}: {e}")
             return False
