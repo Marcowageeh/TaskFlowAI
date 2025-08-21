@@ -66,6 +66,22 @@ class ComprehensiveLangSenseBot:
                 writer = csv.writer(f)
                 writer.writerow(['id', 'customer_id', 'message', 'status', 'date', 'admin_response'])
         
+        # ملف وسائل الدفع العامة
+        if not os.path.exists('payment_methods.csv'):
+            with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date'])
+                # وسائل دفع افتراضية
+                default_methods = [
+                    ['1', '1', 'STC Pay الأساسي', 'wallet', '05xxxxxxxx', 'محفظة STC Pay الرئيسية', 'active', '2024-01-01'],
+                    ['2', '2', 'الأهلي الحساب الجاري', 'bank', 'SA03800000xxxxxxxxx', 'حساب جاري - البنك الأهلي', 'active', '2024-01-01'],
+                    ['3', '3', 'فودافون كاش', 'wallet', '01xxxxxxxx', 'محفظة فودافون كاش', 'active', '2024-01-01'],
+                    ['4', '4', 'الراجحي التوفير', 'bank', 'SA80800000xxxxxxxxx', 'حساب توفير - بنك الراجحي', 'active', '2024-01-01'],
+                    ['5', '5', 'مدى الأهلي', 'card', '4520xxxxxxxxxxxx', 'بطاقة مدى - البنك الأهلي', 'active', '2024-01-01']
+                ]
+                for method in default_methods:
+                    writer.writerow(method)
+        
         # ملف إعدادات النظام
         if not os.path.exists('system_settings.csv'):
             with open('system_settings.csv', 'w', newline='', encoding='utf-8-sig') as f:
@@ -171,6 +187,36 @@ class ComprehensiveLangSenseBot:
             logger.error(f"خطأ في قراءة ملف الشركات: {e}")
         
         return companies
+    
+    def get_payment_methods_for_company(self, company_id):
+        """جلب وسائل الدفع لشركة محددة"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['company_id'] == str(company_id) and row['status'] == 'active':
+                        methods.append(row)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.error(f"خطأ في قراءة وسائل الدفع: {e}")
+        return methods
+    
+    def get_all_payment_methods(self):
+        """جلب جميع وسائل الدفع النشطة"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['status'] == 'active':
+                        methods.append(row)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.error(f"خطأ في قراءة وسائل الدفع: {e}")
+        return methods
     
     def get_exchange_address(self):
         """جلب عنوان الصرافة النشط"""
@@ -380,13 +426,21 @@ class ComprehensiveLangSenseBot:
             return
         
         companies_text = "💰 طلب إيداع جديد\n\n🏢 اختر الشركة للإيداع:\n\n"
+        
+        keyboard = []
         for company in deposit_companies:
+            # عدد وسائل الدفع المتاحة
+            payment_methods_count = len(self.get_payment_methods_for_company(company['id']))
             type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(company['type'], company['type'])
-            companies_text += f"🔹 {company['name']} ({type_display}) - {company['details']}\n"
+            companies_text += f"🔹 {company['name']} ({type_display})\n📋 {company['details']}\n💳 {payment_methods_count} وسيلة دفع متاحة\n\n"
+            keyboard.append([{'text': f"🏢 {company['name']}"}])
         
-        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(deposit_companies)}"
+        keyboard.append([{'text': '🔙 العودة للقائمة الرئيسية'}])
+        companies_keyboard = {'keyboard': keyboard, 'resize_keyboard': True, 'one_time_keyboard': True}
         
-        self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('deposit'))
+        companies_text += f"📊 إجمالي الشركات المتاحة: {len(deposit_companies)}"
+        
+        self.send_message(message['chat']['id'], companies_text, companies_keyboard)
         self.user_states[message['from']['id']] = 'selecting_deposit_company'
     
     def create_withdrawal_request(self, message):
@@ -434,7 +488,59 @@ class ComprehensiveLangSenseBot:
                 return
             
             # عرض وسائل الدفع للشركة المختارة
-            self.show_payment_method_selection(message, selected_company['id'], 'deposit')
+            payment_methods = self.get_payment_methods_for_company(selected_company['id'])
+            if not payment_methods:
+                self.send_message(message['chat']['id'], f"❌ لا توجد وسائل دفع متاحة لشركة {selected_company['name']}\n\nتواصل مع الإدارة لإضافة وسائل الدفع")
+                return
+            
+            # إنشاء قائمة وسائل الدفع
+            methods_text = f"💳 وسائل الدفع المتاحة لشركة {selected_company['name']}:\n\n"
+            methods_keyboard = []
+            
+            for method in payment_methods:
+                method_type_display = {'wallet': 'محفظة إلكترونية', 'bank': 'حساب بنكي', 'card': 'بطاقة'}.get(method['method_type'], method['method_type'])
+                methods_text += f"💳 {method['method_name']}\n📋 {method_type_display}\n💼 {method['account_data']}\n"
+                if method['additional_info']:
+                    methods_text += f"💡 {method['additional_info']}\n"
+                methods_text += "\n"
+                methods_keyboard.append([{'text': f"💳 {method['method_name']}"}])
+            
+            methods_keyboard.append([{'text': '🔙 العودة لاختيار الشركة'}])
+            methods_kb = {'keyboard': methods_keyboard, 'resize_keyboard': True, 'one_time_keyboard': True}
+            
+            self.send_message(message['chat']['id'], methods_text, methods_kb)
+            self.user_states[user_id] = f'selecting_deposit_payment_method_{selected_company["id"]}_{selected_company["name"]}'
+        
+        elif state.startswith('selecting_deposit_payment_method_'):
+            # معالجة اختيار وسيلة الدفع
+            parts = state.split('_', 4)
+            company_id = parts[3]
+            company_name = parts[4] if len(parts) > 4 else ''
+            
+            selected_method_name = text.replace('💳 ', '')
+            
+            # البحث عن وسيلة الدفع المختارة
+            payment_methods = self.get_payment_methods_for_company(company_id)
+            selected_method = None
+            for method in payment_methods:
+                if method['method_name'] == selected_method_name:
+                    selected_method = method
+                    break
+            
+            if not selected_method:
+                self.send_message(message['chat']['id'], "❌ وسيلة دفع غير صحيحة. اختر من القائمة:")
+                return
+            
+            # طلب رقم المحفظة/الحساب
+            wallet_text = f"""✅ تم اختيار: {selected_method['method_name']}
+💳 النوع: {selected_method['method_type']}
+💼 البيانات: {selected_method['account_data']}
+
+📝 الآن أدخل رقم محفظتك/حسابك:
+💡 مثال: 0512345678 أو SA03800000000001234567890"""
+            
+            self.send_message(message['chat']['id'], wallet_text)
+            self.user_states[user_id] = f'deposit_wallet_{company_id}_{company_name}_{selected_method["id"]}'
             
         elif state.startswith('deposit_wallet_'):
             parts = state.split('_', 3)

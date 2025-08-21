@@ -42,6 +42,8 @@ Admin Commands: Simplified format without complex syntax requirements.
 ### Financial Services Workflow
 - **Enhanced Deposit Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → Completion
 - **Enhanced Withdrawal Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → **Withdrawal Address Entry** → **Confirmation Code Entry** → Final Confirmation
+- **Payment Method Integration**: Each company displays available payment methods with detailed information (type, account data, additional info)
+- **User Experience**: Clear display of payment method count per company and interactive selection process
 - **Payment Method Integration**: Users select specific payment methods for each company (bank accounts, e-wallets, etc.)
 - **Status Tracking**: Simple pending/approved/rejected states
 - **Admin Approval**: Direct text-based commands (موافقة/رفض)
@@ -55,6 +57,8 @@ Admin Commands: Simplified format without complex syntax requirements.
   - Customizable payment data fields for each method
   - Admin CRUD operations (add, edit, delete) for payment methods
   - User selection of payment methods during transactions
+  - Enhanced Payment Method Integration: Users select specific payment methods for each company during deposit/withdrawal
+  - Payment Method Types: Support for wallets, bank accounts, and cards with detailed information
 - **User-Friendly Interface**: Button-based navigation with confirmation dialogs and real-time preview
 - **Advanced Features**: 
   - Add Company Wizard: Name → Service Type (buttons) → Details → Confirmation with edit options
