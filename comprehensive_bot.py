@@ -217,7 +217,7 @@ class ComprehensiveLangSenseBot:
                 [{'text': '✅ إلغاء حظر'}, {'text': '📝 إضافة شركة'}],
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
-                [{'text': '🏠 القائمة الرئيسية'}]
+                [{'text': '📋 نسخ أوامر سريعة'}, {'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
             'one_time_keyboard': False
@@ -883,6 +883,8 @@ class ComprehensiveLangSenseBot:
             self.show_system_settings(message)
         elif text == '📨 الشكاوى':
             self.show_complaints_admin(message)
+        elif text == '📋 نسخ أوامر سريعة':
+            self.show_quick_copy_commands(message)
         elif text == '🏠 القائمة الرئيسية':
             user = self.find_user(message['from']['id'])
             if user:
@@ -954,9 +956,10 @@ class ComprehensiveLangSenseBot:
             self.send_message(chat_id, "أمر غير مفهوم. استخدم الأزرار أو الأوامر الصحيحة.", self.admin_keyboard())
     
     def show_pending_requests(self, message):
-        """عرض الطلبات المعلقة للأدمن"""
+        """عرض الطلبات المعلقة للأدمن مع أوامر نسخ سهلة"""
         pending_text = "📋 الطلبات المعلقة:\n\n"
         found_pending = False
+        copy_commands = []
         
         try:
             with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
@@ -966,7 +969,7 @@ class ComprehensiveLangSenseBot:
                         found_pending = True
                         type_emoji = "💰" if row['type'] == 'deposit' else "💸"
                         
-                        pending_text += f"{type_emoji} {row['id']}\n"
+                        pending_text += f"{type_emoji} **{row['id']}**\n"
                         pending_text += f"👤 {row['name']} ({row['customer_id']})\n"
                         pending_text += f"🏢 {row['company']}\n"
                         pending_text += f"💳 {row['wallet_number']}\n"
@@ -976,15 +979,43 @@ class ComprehensiveLangSenseBot:
                             pending_text += f"📍 {row['exchange_address']}\n"
                         
                         pending_text += f"📅 {row['date']}\n"
+                        
+                        # إضافة أوامر النسخ السريع
+                        pending_text += f"\n📋 **أوامر سريعة للنسخ:**\n"
+                        pending_text += f"✅ `موافقة {row['id']}`\n"
+                        pending_text += f"❌ `رفض {row['id']} السبب_هنا`\n"
                         pending_text += f"▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
+                        
+                        # حفظ الأوامر للنسخ الجماعي
+                        copy_commands.append({
+                            'id': row['id'],
+                            'approve': f"موافقة {row['id']}",
+                            'reject': f"رفض {row['id']} السبب_هنا"
+                        })
         except:
             pass
         
         if not found_pending:
             pending_text += "✅ لا توجد طلبات معلقة"
         else:
-            pending_text += "\n📝 للموافقة: موافقة رقم_المعاملة"
-            pending_text += "\n📝 للرفض: رفض رقم_المعاملة السبب"
+            # إضافة قسم الأوامر الجاهزة للنسخ
+            pending_text += "\n🔥 **أوامر جاهزة للنسخ المباشر:**\n\n"
+            
+            for cmd in copy_commands:
+                pending_text += f"**{cmd['id']}:**\n"
+                pending_text += f"✅ `{cmd['approve']}`\n"
+                pending_text += f"❌ `{cmd['reject']}`\n\n"
+            
+            pending_text += "💡 **طرق سهلة للاستخدام:**\n"
+            pending_text += "• انقر على الأمر واختر 'نسخ'\n"
+            pending_text += "• أو اكتب مباشرة: موافقة + رقم المعاملة\n"
+            pending_text += "• للرفض: رفض + رقم المعاملة + السبب\n\n"
+            
+            pending_text += "📝 **أمثلة أوامر الموافقة:**\n"
+            pending_text += "`موافقة` أو `موافق` أو `تأكيد` أو `نعم`\n\n"
+            
+            pending_text += "📝 **أمثلة أوامر الرفض:**\n"
+            pending_text += "`رفض` أو `لا` أو `مرفوض` أو `إلغاء`"
         
         self.send_message(message['chat']['id'], pending_text, self.admin_keyboard())
     
@@ -1870,6 +1901,47 @@ class ComprehensiveLangSenseBot:
         # تنظيف الحالة
         del self.user_states[user_id]
     
+    def show_quick_copy_commands(self, message):
+        """عرض أوامر نسخ سريعة للأدمن"""
+        commands_text = """📋 أوامر نسخ سريعة:
+
+🔥 **أوامر الموافقة والرفض:**
+• `موافقة DEP123456`
+• `موافق DEP123456`
+• `تأكيد DEP123456`
+• `نعم DEP123456`
+
+• `رفض DEP123456 مبلغ غير صحيح`
+• `لا DEP123456 بيانات ناقصة`
+• `مرفوض WTH789012 رقم محفظة خطأ`
+
+💼 **أوامر إدارة الشركات:**
+• `اضافة_شركة البنك_الأهلي deposit حساب_بنكي_123456789`
+• `اضافة_شركة فودافون_كاش both محفظة_الكترونية`
+• `حذف_شركة 1737570855`
+
+👥 **أوامر إدارة المستخدمين:**
+• `بحث أحمد`
+• `بحث C123456`
+• `حظر C123456 مخالفة الشروط`
+• `الغاء_حظر C123456`
+
+📨 **أوامر الشكاوى:**
+• `رد_شكوى 123 شكراً لتواصلك`
+• `رد_شكوى 456 تم حل مشكلتك`
+• `رد_شكوى 789 نراجع طلبك`
+
+🏢 **أوامر أخرى:**
+• `عنوان_جديد شارع الملك فهد الرياض`
+• `تعديل_اعداد min_deposit 100`
+
+💡 **نصائح للاستخدام:**
+• انقر على أي أمر واختر 'نسخ'
+• غير الأرقام والنصوص حسب الحاجة
+• استخدم _ بدلاً من المسافات في أسماء الشركات"""
+        
+        self.send_message(message['chat']['id'], commands_text, self.admin_keyboard())
+    
     def start_add_company_wizard(self, message):
         """بدء معالج إضافة شركة تفاعلي"""
         wizard_text = """🧙‍♂️ معالج إضافة الشركة
@@ -2030,9 +2102,10 @@ class ComprehensiveLangSenseBot:
         self.send_message(message['chat']['id'], settings_text, self.admin_keyboard())
     
     def show_complaints_admin(self, message):
-        """عرض الشكاوى للأدمن"""
-        complaints_text = "📨 الشكاوى:\n\n"
+        """عرض الشكاوى للأدمن مع أوامر نسخ سهلة"""
+        complaints_text = "📨 الشكاوى المرسلة:\n\n"
         found_complaints = False
+        copy_commands = []
         
         try:
             with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
@@ -2041,7 +2114,7 @@ class ComprehensiveLangSenseBot:
                     found_complaints = True
                     status = "✅ تم الرد" if row.get('admin_response') else "⏳ في انتظار الرد"
                     
-                    complaints_text += f"🆔 {row['id']}\n"
+                    complaints_text += f"🆔 **{row['id']}**\n"
                     complaints_text += f"👤 عميل: {row['customer_id']}\n"
                     complaints_text += f"📝 الشكوى: {row['message']}\n"
                     complaints_text += f"📅 التاريخ: {row['date']}\n"
@@ -2049,13 +2122,46 @@ class ComprehensiveLangSenseBot:
                     
                     if row.get('admin_response'):
                         complaints_text += f"💬 الرد: {row['admin_response']}\n"
+                    else:
+                        # إضافة أوامر النسخ السريع للشكاوى غير المجاب عليها
+                        complaints_text += f"\n📋 **أوامر سريعة للرد:**\n"
+                        complaints_text += f"📞 `رد_شكوى {row['id']} شكراً لتواصلك. تم حل المشكلة.`\n"
+                        complaints_text += f"🔍 `رد_شكوى {row['id']} نحن نراجع طلبك وسنرد قريباً.`\n"
+                        complaints_text += f"✅ `رد_شكوى {row['id']} تم حل مشكلتك بنجاح.`\n"
+                        
+                        # إضافة للقائمة الجماعية
+                        copy_commands.append({
+                            'id': row['id'],
+                            'customer': row['customer_id'],
+                            'message': row['message'][:50] + '...' if len(row['message']) > 50 else row['message']
+                        })
                     
-                    complaints_text += "\n"
+                    complaints_text += f"▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
         except:
             pass
         
         if not found_complaints:
-            complaints_text += "لا توجد شكاوى"
+            complaints_text += "✅ لا توجد شكاوى"
+        elif copy_commands:
+            # إضافة قسم الردود الجاهزة
+            complaints_text += "\n🔥 **ردود جاهزة للنسخ المباشر:**\n\n"
+            
+            for cmd in copy_commands:
+                complaints_text += f"**{cmd['id']} - {cmd['customer']}:**\n"
+                complaints_text += f"✅ `رد_شكوى {cmd['id']} تم حل مشكلتك بنجاح. شكراً لتواصلك.`\n"
+                complaints_text += f"🔍 `رد_شكوى {cmd['id']} نحن نراجع طلبك وسنرد خلال 24 ساعة.`\n"
+                complaints_text += f"📞 `رد_شكوى {cmd['id']} تواصل معنا على الهاتف للمساعدة.`\n\n"
+            
+            complaints_text += "💡 **طرق استخدام الردود:**\n"
+            complaints_text += "• انقر على الرد واختر 'نسخ'\n"
+            complaints_text += "• أو اكتب: رد_شكوى + رقم_الشكوى + نص_الرد\n"
+            complaints_text += "• مثال: `رد_شكوى 123 شكراً لتواصلك`\n\n"
+            
+            complaints_text += "📝 **ردود سريعة مقترحة:**\n"
+            complaints_text += "• `تم حل مشكلتك بنجاح`\n"
+            complaints_text += "• `نراجع طلبك وسنرد قريباً`\n"
+            complaints_text += "• `شكراً لتواصلك معنا`\n"
+            complaints_text += "• `تواصل معنا للمساعدة`"
         
         self.send_message(message['chat']['id'], complaints_text, self.admin_keyboard())
     
