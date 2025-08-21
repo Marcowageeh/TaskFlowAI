@@ -166,14 +166,50 @@ class SimpleLangSenseBot:
                 return
             
             self.user_states[user_id] = f'registering_phone_{name}'
-            self.send_message(message['chat']['id'], "ممتاز! الآن أرسل رقم هاتفك (مع رمز البلد):")
+            
+            # كيبورد مشاركة جهة الاتصال
+            contact_keyboard = {
+                'keyboard': [
+                    [{'text': '📱 مشاركة رقم الهاتف', 'request_contact': True}],
+                    [{'text': '✍️ كتابة الرقم يدوياً'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            phone_text = """ممتاز! الآن أرسل رقم هاتفك:
+
+📱 يمكنك مشاركة رقمك مباشرة بالضغط على "📱 مشاركة رقم الهاتف"
+✍️ أو اكتب الرقم يدوياً مع رمز البلد (مثال: +966501234567)"""
+            
+            self.send_message(message['chat']['id'], phone_text, contact_keyboard)
             
         elif state.startswith('registering_phone_'):
             name = state.replace('registering_phone_', '')
-            phone = message['text'].strip()
             
-            if len(phone) < 10:
-                self.send_message(message['chat']['id'], "❌ رقم هاتف غير صحيح. يرجى إدخال رقم صحيح:")
+            # التحقق من نوع الرسالة
+            if 'contact' in message:
+                # مشاركة جهة الاتصال
+                phone = message['contact']['phone_number']
+                if not phone.startswith('+'):
+                    phone = '+' + phone
+            elif 'text' in message:
+                text = message['text'].strip()
+                
+                if text == '✍️ كتابة الرقم يدوياً':
+                    manual_text = """✍️ اكتب رقم هاتفك مع رمز البلد:
+
+مثال: +966501234567
+مثال: +201234567890"""
+                    self.send_message(message['chat']['id'], manual_text)
+                    return
+                
+                phone = text
+                if len(phone) < 10:
+                    self.send_message(message['chat']['id'], "❌ رقم هاتف غير صحيح. يرجى إدخال رقم صحيح مع رمز البلد:")
+                    return
+            else:
+                self.send_message(message['chat']['id'], "❌ يرجى مشاركة جهة الاتصال أو كتابة الرقم:")
                 return
             
             # إنشاء رقم عميل تلقائي
@@ -546,12 +582,13 @@ class SimpleLangSenseBot:
     def handle_message(self, message):
         """معالجة الرسائل الواردة"""
         try:
-            if 'text' not in message:
+            # قبول الرسائل النصية أو جهات الاتصال
+            if 'text' not in message and 'contact' not in message:
                 return
             
             user_id = message['from']['id']
             chat_id = message['chat']['id']
-            text = message['text']
+            text = message.get('text', '')
             
             # معالجة /start
             if text == '/start':
