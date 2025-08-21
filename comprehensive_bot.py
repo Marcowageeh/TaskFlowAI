@@ -152,11 +152,20 @@ class ComprehensiveLangSenseBot:
             with open('companies.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    # تنظيف البيانات من المسافات الزائدة
+                    row = {k: v.strip() if isinstance(v, str) else v for k, v in row.items()}
+                    
                     if row.get('is_active', 'active') == 'active':
                         if service_type is None or row['type'] in [service_type, 'both']:
                             companies.append(row)
-        except:
-            pass
+        except Exception as e:
+            # إنشاء الملف إذا لم يكن موجوداً
+            try:
+                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
+            except:
+                pass
         return companies
     
     def get_exchange_address(self):
@@ -353,15 +362,30 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للإيداع
+        # عرض الشركات المتاحة للإيداع (deposit أو both)
         deposit_companies = self.get_companies('deposit')
+        
+        # إضافة تشخيص للمساعدة في حل المشكلة
+        all_companies = self.get_companies()
+        debug_info = f"[DEBUG] إجمالي الشركات: {len(all_companies)}, شركات الإيداع: {len(deposit_companies)}"
+        print(debug_info)  # للسجل
+        
         if not deposit_companies:
-            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للإيداع حالياً")
+            error_msg = f"""❌ لا توجد شركات متاحة للإيداع حالياً
+
+🔍 معلومات تشخيصية:
+• إجمالي الشركات في النظام: {len(all_companies)}
+• الشركات المتاحة للإيداع: {len(deposit_companies)}
+
+💡 يرجى التواصل مع الأدمن لإضافة شركات للإيداع"""
+            self.send_message(message['chat']['id'], error_msg)
             return
         
         companies_text = "💰 طلب إيداع جديد\n\n🏢 اختر الشركة للإيداع:\n\n"
         for company in deposit_companies:
             companies_text += f"🔹 {company['name']} - {company['details']}\n"
+        
+        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(deposit_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('deposit'))
         self.user_states[message['from']['id']] = 'selecting_deposit_company'
@@ -372,15 +396,30 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للسحب
+        # عرض الشركات المتاحة للسحب (withdraw أو both)
         withdraw_companies = self.get_companies('withdraw')
+        
+        # إضافة تشخيص للمساعدة في حل المشكلة
+        all_companies = self.get_companies()
+        debug_info = f"[DEBUG] إجمالي الشركات: {len(all_companies)}, شركات السحب: {len(withdraw_companies)}"
+        print(debug_info)  # للسجل
+        
         if not withdraw_companies:
-            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للسحب حالياً")
+            error_msg = f"""❌ لا توجد شركات متاحة للسحب حالياً
+
+🔍 معلومات تشخيصية:
+• إجمالي الشركات في النظام: {len(all_companies)}
+• الشركات المتاحة للسحب: {len(withdraw_companies)}
+
+💡 يرجى التواصل مع الأدمن لإضافة شركات للسحب"""
+            self.send_message(message['chat']['id'], error_msg)
             return
         
         companies_text = "💸 طلب سحب جديد\n\n🏢 اختر الشركة للسحب:\n\n"
         for company in withdraw_companies:
             companies_text += f"🔹 {company['name']} - {company['details']}\n"
+        
+        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(withdraw_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('withdraw'))
         self.user_states[message['from']['id']] = 'selecting_withdraw_company'
@@ -1355,10 +1394,25 @@ class ComprehensiveLangSenseBot:
             self.send_message(message['chat']['id'], error_text, self.admin_keyboard())
             return
         
-        # إنشاء معرف جديد
-        company_id = str(int(datetime.now().timestamp()))
+        # إنشاء معرف جديد مع ضمان عدم التكرار
+        company_id = str(int(datetime.now().timestamp() * 1000) % 10000000000)
         
         try:
+            # فحص إذا كان الملف موجود وإنشاؤه مع headers إذا لم يكن موجوداً
+            file_exists = True
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    pass
+            except FileNotFoundError:
+                file_exists = False
+            
+            # إنشاء الملف مع headers إذا لم يكن موجوداً
+            if not file_exists:
+                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
+            
+            # إضافة الشركة الجديدة
             with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerow([company_id, company_name, service_type, details, 'active'])
