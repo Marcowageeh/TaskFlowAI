@@ -362,30 +362,15 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للإيداع (deposit أو both)
+        # عرض الشركات المتاحة للإيداع
         deposit_companies = self.get_companies('deposit')
-        
-        # إضافة تشخيص للمساعدة في حل المشكلة
-        all_companies = self.get_companies()
-        debug_info = f"[DEBUG] إجمالي الشركات: {len(all_companies)}, شركات الإيداع: {len(deposit_companies)}"
-        print(debug_info)  # للسجل
-        
         if not deposit_companies:
-            error_msg = f"""❌ لا توجد شركات متاحة للإيداع حالياً
-
-🔍 معلومات تشخيصية:
-• إجمالي الشركات في النظام: {len(all_companies)}
-• الشركات المتاحة للإيداع: {len(deposit_companies)}
-
-💡 يرجى التواصل مع الأدمن لإضافة شركات للإيداع"""
-            self.send_message(message['chat']['id'], error_msg)
+            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للإيداع حالياً")
             return
         
         companies_text = "💰 طلب إيداع جديد\n\n🏢 اختر الشركة للإيداع:\n\n"
         for company in deposit_companies:
             companies_text += f"🔹 {company['name']} - {company['details']}\n"
-        
-        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(deposit_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('deposit'))
         self.user_states[message['from']['id']] = 'selecting_deposit_company'
@@ -396,30 +381,15 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للسحب (withdraw أو both)
+        # عرض الشركات المتاحة للسحب
         withdraw_companies = self.get_companies('withdraw')
-        
-        # إضافة تشخيص للمساعدة في حل المشكلة
-        all_companies = self.get_companies()
-        debug_info = f"[DEBUG] إجمالي الشركات: {len(all_companies)}, شركات السحب: {len(withdraw_companies)}"
-        print(debug_info)  # للسجل
-        
         if not withdraw_companies:
-            error_msg = f"""❌ لا توجد شركات متاحة للسحب حالياً
-
-🔍 معلومات تشخيصية:
-• إجمالي الشركات في النظام: {len(all_companies)}
-• الشركات المتاحة للسحب: {len(withdraw_companies)}
-
-💡 يرجى التواصل مع الأدمن لإضافة شركات للسحب"""
-            self.send_message(message['chat']['id'], error_msg)
+            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للسحب حالياً")
             return
         
         companies_text = "💸 طلب سحب جديد\n\n🏢 اختر الشركة للسحب:\n\n"
         for company in withdraw_companies:
             companies_text += f"🔹 {company['name']} - {company['details']}\n"
-        
-        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(withdraw_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('withdraw'))
         self.user_states[message['from']['id']] = 'selecting_withdraw_company'
