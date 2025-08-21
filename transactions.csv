@@ -1,6 +1,7 @@
-﻿id,customer_id,type,amount,status,date
-T20250821153825,C000001,deposit,0,pending,2025-08-21 15:38
-T20250821153912,C000001,deposit,0,pending,2025-08-21 15:39
-T20250821154000,C000002,deposit,0,pending,2025-08-21 15:40
-T20250821154858,C000002,deposit,0,pending,2025-08-21 15:48
-T20250821160509,C000002,deposit,0,pending,2025-08-21 16:05
+﻿id,customer_id,telegram_id,name,type,amount,status,date,admin_note,payment_method,receipt_info,processed_by
+T20250821153825,C000001,,,deposit,0,rejected,2025-08-21 15:38,بيللييبليب,,,6986450780
+T20250821153912,C000001,,,deposit,0,pending,2025-08-21 15:39,,,,
+T20250821154000,C000002,,,deposit,0,pending,2025-08-21 15:40,,,,
+T20250821154858,C000002,,,deposit,0,pending,2025-08-21 15:48,,,,
+T20250821160509,C000002,,,deposit,0,pending,2025-08-21 16:05,,,,
+DEP20250821160932,C000002,6004754785,Yasoo,deposit,1000,pending,2025-08-21 16:09,,البنك الأهلي,awaiting_receipt,

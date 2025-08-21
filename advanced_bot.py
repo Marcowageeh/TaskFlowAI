@@ -25,6 +25,7 @@ class AdvancedLangSenseBot:
         self.offset = 0
         self.user_states = {}  # لحفظ حالات المستخدمين
         self.init_files()
+        self.admin_ids = self.get_admin_ids()  # جلب معرفات الأدمن
         
     def init_files(self):
         """إنشاء جميع ملفات النظام"""
@@ -92,10 +93,22 @@ class AdvancedLangSenseBot:
             logger.error(f"خطأ في جلب التحديثات: {e}")
             return None
     
+    def get_admin_ids(self):
+        """جلب معرفات الأدمن"""
+        admin_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
+        return [admin_id.strip() for admin_id in admin_ids if admin_id.strip()]
+    
     def is_admin(self, telegram_id):
         """فحص صلاحية الأدمن"""
-        admin_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
-        return str(telegram_id) in admin_ids
+        return str(telegram_id) in self.admin_ids
+    
+    def notify_admins(self, message):
+        """إشعار فوري لجميع الأدمن"""
+        for admin_id in self.admin_ids:
+            try:
+                self.send_message(admin_id, message)
+            except:
+                pass
     
     def is_user_banned(self, telegram_id):
         """فحص حظر المستخدم"""
@@ -304,6 +317,24 @@ class AdvancedLangSenseBot:
                 '', selected_method, 'awaiting_details', ''
             ])
         
+        # إشعار فوري شامل للأدمن
+        admin_notification = f"""🚨 طلب إيداع جديد - مرحلة 1
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+📱 تيليجرام: @{message['from'].get('username', 'غير متوفر')} ({user['telegram_id']})
+📞 الهاتف: {user['phone']}
+🏦 وسيلة الدفع المختارة: {selected_method}
+📅 الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+🔢 المرحلة: انتظار إدخال المبلغ
+
+📋 تفاصيل وسيلة الدفع:
+{selected_method_info['details']}
+
+⏳ العميل الآن يدخل المبلغ المطلوب..."""
+        
+        self.notify_admins(admin_notification)
+        
         self.send_message(message['chat']['id'], response)
         self.user_states[message['from']['id']] = f'deposit_amount_{trans_id}'
     
@@ -409,6 +440,40 @@ class AdvancedLangSenseBot:
             elif text.startswith('/reject '):
                 self.handle_admin_reject(message)
                 return
+            # معالجة أزرار الأدمن
+            elif text == '📋 الطلبات المعلقة':
+                self.handle_admin_pending(message)
+                return
+            elif text == '✅ طلبات مُوافقة':
+                self.show_approved_transactions(message)
+                return
+            elif text == '👥 إدارة المستخدمين':
+                self.show_users_management(message)
+                return
+            elif text == '🔍 البحث':
+                self.prompt_admin_search(message)
+                return
+            elif text == '💳 وسائل الدفع':
+                self.show_payment_methods_admin(message)
+                return
+            elif text == '📊 الإحصائيات':
+                self.show_detailed_stats(message)
+                return
+            elif text == '📢 إرسال جماعي':
+                self.prompt_broadcast(message)
+                return
+            elif text == '🚫 حظر مستخدم':
+                self.prompt_ban_user(message)
+                return
+            elif text == '✅ إلغاء حظر':
+                self.prompt_unban_user(message)
+                return
+            elif text == '🏠 القائمة الرئيسية':
+                user = self.find_user(user_id)
+                lang = user.get('language', 'ar') if user else 'ar'
+                welcome_text = f"مرحباً! 👋\nتم العودة للقائمة الرئيسية"
+                self.send_message(chat_id, welcome_text, self.main_keyboard(lang))
+                return
         
         # فحص حالات المستخدم
         if user_id in self.user_states:
@@ -418,6 +483,18 @@ class AdvancedLangSenseBot:
                 return
             elif state.startswith('deposit_amount_'):
                 self.process_deposit_amount(message)
+                return
+            elif state == 'admin_searching':
+                self.process_admin_search(message)
+                return
+            elif state == 'admin_broadcasting':
+                self.process_admin_broadcast(message)
+                return
+            elif state == 'admin_banning':
+                self.process_admin_ban(message)
+                return
+            elif state == 'admin_unbanning':
+                self.process_admin_unban(message)
                 return
         
         user = self.find_user(user_id)
@@ -480,7 +557,7 @@ class AdvancedLangSenseBot:
         return None
     
     def handle_admin_approve(self, message):
-        """موافقة الأدمن على طلب"""
+        """موافقة الأدمن على طلب مع إشعار فوري"""
         if not self.is_admin(message['from']['id']):
             return
         
@@ -489,40 +566,89 @@ class AdvancedLangSenseBot:
             return
         
         trans_id = parts[1]
-        if self.update_transaction_status(trans_id, 'approved', 'تمت الموافقة', str(message['from']['id'])):
-            # إشعار المستخدم
+        admin_name = message['from'].get('first_name', 'الإدارة')
+        
+        if self.update_transaction_status(trans_id, 'approved', f'تمت الموافقة من {admin_name}', str(message['from']['id'])):
+            # إشعار فوري للمستخدم مع تفاصيل كاملة
             trans_info = self.get_transaction_info(trans_id)
             if trans_info:
-                self.send_message(trans_info['telegram_id'], f"✅ تمت الموافقة على طلبك\n🆔 {trans_id}\n💰 {trans_info['type']}: {trans_info['amount']} ريال")
+                user_notification = f"""🎉 تمت الموافقة على طلبك!
+
+🆔 رقم المعاملة: {trans_id}
+💰 النوع: {trans_info['type']}
+💵 المبلغ: {trans_info['amount']} ريال
+⏰ وقت الموافقة: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+👤 معالج بواسطة: {admin_name}
+
+✅ تم معالجة طلبك بنجاح
+شكراً لاستخدام خدماتنا"""
+                
+                try:
+                    self.send_message(trans_info['telegram_id'], user_notification)
+                except:
+                    pass
             
-            self.send_message(message['chat']['id'], f"✅ تمت الموافقة على الطلب {trans_id}")
+            admin_response = f"✅ تمت الموافقة على الطلب {trans_id}\n📱 تم إشعار العميل فوراً"
+            self.send_message(message['chat']['id'], admin_response, self.admin_keyboard())
         else:
-            self.send_message(message['chat']['id'], f"❌ فشل في الموافقة على الطلب {trans_id}")
+            self.send_message(message['chat']['id'], f"❌ فشل في الموافقة على الطلب {trans_id}", self.admin_keyboard())
     
     def handle_admin_reject(self, message):
-        """رفض طلب"""
+        """رفض طلب مع إشعار فوري محسن"""
         if not self.is_admin(message['from']['id']):
             return
         
         parts = message['text'].split(' ', 2)
         if len(parts) < 3:
-            self.send_message(message['chat']['id'], "استخدم: /reject رقم_المعاملة السبب")
+            self.send_message(message['chat']['id'], "استخدم: /reject رقم_المعاملة السبب", self.admin_keyboard())
             return
         
         trans_id = parts[1]
         reason = parts[2]
+        admin_name = message['from'].get('first_name', 'الإدارة')
         
-        if self.update_transaction_status(trans_id, 'rejected', reason, str(message['from']['id'])):
+        if self.update_transaction_status(trans_id, 'rejected', f'مرفوض: {reason}', str(message['from']['id'])):
             trans_info = self.get_transaction_info(trans_id)
             if trans_info:
-                self.send_message(trans_info['telegram_id'], f"❌ تم رفض طلبك\n🆔 {trans_id}\nالسبب: {reason}")
+                user_notification = f"""❌ تم رفض طلبك
+
+🆔 رقم المعاملة: {trans_id}
+💰 النوع: {trans_info['type']}
+💵 المبلغ: {trans_info['amount']} ريال
+⏰ وقت الرفض: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+📝 سبب الرفض: {reason}
+
+💡 يمكنك إنشاء طلب جديد إذا أردت
+للاستفسار تواصل مع الإدارة"""
+                
+                try:
+                    self.send_message(trans_info['telegram_id'], user_notification)
+                except:
+                    pass
             
-            self.send_message(message['chat']['id'], f"✅ تم رفض الطلب {trans_id}")
+            admin_response = f"✅ تم رفض الطلب {trans_id}\n📱 تم إشعار العميل بالسبب فوراً"
+            self.send_message(message['chat']['id'], admin_response, self.admin_keyboard())
         else:
-            self.send_message(message['chat']['id'], f"❌ فشل في رفض الطلب {trans_id}")
+            self.send_message(message['chat']['id'], f"❌ فشل في رفض الطلب {trans_id}", self.admin_keyboard())
+    
+    def admin_keyboard(self):
+        """لوحة أزرار الأدمن الشاملة"""
+        return {
+            'keyboard': [
+                [{'text': '📋 الطلبات المعلقة'}, {'text': '✅ طلبات مُوافقة'}],
+                [{'text': '👥 إدارة المستخدمين'}, {'text': '🔍 البحث'}],
+                [{'text': '💳 وسائل الدفع'}, {'text': '📊 الإحصائيات'}],
+                [{'text': '📢 إرسال جماعي'}, {'text': '🔧 إعدادات'}],
+                [{'text': '🚫 حظر مستخدم'}, {'text': '✅ إلغاء حظر'}],
+                [{'text': '📝 إضافة وسيلة دفع'}, {'text': '📄 تقارير'}],
+                [{'text': '🏠 القائمة الرئيسية'}]
+            ],
+            'resize_keyboard': True
+        }
     
     def handle_admin_panel(self, message):
-        """لوحة إدارة شاملة"""
+        """لوحة إدارة شاملة بالأزرار"""
         if not self.is_admin(message['from']['id']):
             return
         
@@ -532,8 +658,9 @@ class AdvancedLangSenseBot:
                 users = list(csv.DictReader(f))
                 total_users = len(users)
                 banned_users = len([u for u in users if u.get('is_banned') == 'yes'])
+                active_users = total_users - banned_users
         except:
-            total_users = banned_users = 0
+            total_users = banned_users = active_users = 0
         
         try:
             with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
@@ -541,39 +668,181 @@ class AdvancedLangSenseBot:
                 total_trans = len(transactions)
                 pending_trans = len([t for t in transactions if t['status'] == 'pending'])
                 approved_trans = len([t for t in transactions if t['status'] == 'approved'])
+                rejected_trans = len([t for t in transactions if t['status'] == 'rejected'])
+                
+                # حساب إجمالي المبالغ
+                total_amount = sum(float(t.get('amount', 0)) for t in transactions if t['status'] == 'approved')
         except:
-            total_trans = pending_trans = approved_trans = 0
+            total_trans = pending_trans = approved_trans = rejected_trans = 0
+            total_amount = 0
         
-        admin_text = f"""🛠️ لوحة الإدارة المتقدمة
+        admin_text = f"""🛠️ لوحة التحكم الشاملة
 
-📊 الإحصائيات:
-👥 المستخدمين: {total_users} (🚫 محظور: {banned_users})
+📊 الإحصائيات الحية:
+👥 المستخدمين: {total_users}
+   ✅ نشطين: {active_users}
+   🚫 محظورين: {banned_users}
+
 💰 المعاملات: {total_trans}
    ⏳ معلقة: {pending_trans}
-   ✅ مُوافق عليها: {approved_trans}
+   ✅ مُوافقة: {approved_trans}
+   ❌ مرفوضة: {rejected_trans}
+   💵 إجمالي المبالغ: {total_amount:,.0f} ريال
 
-🔍 البحث والإدارة:
-/search اسم_أو_رقم - البحث عن مستخدم
-/userinfo رقم_العميل - تفاصيل المستخدم
-/ban رقم_العميل السبب - حظر مستخدم
-/unban رقم_العميل - إلغاء الحظر
-
-📋 إدارة الطلبات:
-/pending - عرض الطلبات المعلقة
-/approve رقم_المعاملة - الموافقة على طلب
-/reject رقم_المعاملة السبب - رفض طلب
-/note رقم_المعاملة التعليق - إضافة تعليق
-
-💳 إدارة وسائل الدفع:
-/payments - عرض وسائل الدفع
-/addpay deposit "اسم_البنك" "التفاصيل" - إضافة وسيلة إيداع
-/addpay withdraw "اسم_المحفظة" "التفاصيل" - إضافة وسيلة سحب
-
-📢 أخرى:
-/broadcast رسالة - إرسال جماعي
-/stats - إحصائيات تفصيلية"""
+استخدم الأزرار أدناه للتحكم الكامل:"""
         
-        self.send_message(message['chat']['id'], admin_text)
+        self.send_message(message['chat']['id'], admin_text, self.admin_keyboard())
+    
+    def show_approved_transactions(self, message):
+        """عرض الطلبات المُوافقة"""
+        try:
+            with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                transactions = [t for t in csv.DictReader(f) if t['status'] == 'approved']
+        except:
+            transactions = []
+        
+        if not transactions:
+            self.send_message(message['chat']['id'], "✅ لا توجد طلبات مُوافقة", self.admin_keyboard())
+            return
+        
+        response = f"✅ الطلبات المُوافقة ({len(transactions)}):\n\n"
+        for trans in transactions[-10:]:
+            response += f"🆔 {trans['id']}\n👤 {trans['name']}\n💰 {trans['type']}: {trans['amount']} ريال\n📅 {trans['date']}\n\n"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def show_users_management(self, message):
+        """إدارة المستخدمين"""
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                users = list(csv.DictReader(f))
+        except:
+            users = []
+        
+        if not users:
+            self.send_message(message['chat']['id'], "👥 لا توجد مستخدمين", self.admin_keyboard())
+            return
+        
+        active = [u for u in users if u.get('is_banned', 'no') == 'no']
+        banned = [u for u in users if u.get('is_banned', 'no') == 'yes']
+        
+        response = f"""👥 إدارة المستخدمين
+
+📊 الإحصائيات:
+✅ نشطين: {len(active)}
+🚫 محظورين: {len(banned)}
+📋 المجموع: {len(users)}
+
+آخر 5 مستخدمين:
+"""
+        for user in users[-5:]:
+            status = "🚫" if user.get('is_banned') == 'yes' else "✅"
+            response += f"{status} {user['name']} ({user['customer_id']})\n"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def prompt_admin_search(self, message):
+        """طلب البحث من الأدمن"""
+        response = "🔍 البحث في المستخدمين\n\nأرسل اسم العميل أو رقم العميل للبحث:"
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = 'admin_searching'
+    
+    def show_payment_methods_admin(self, message):
+        """عرض وسائل الدفع للأدمن"""
+        deposit_methods = self.get_payment_methods('deposit')
+        withdraw_methods = self.get_payment_methods('withdraw')
+        
+        response = "💳 وسائل الدفع الحالية\n\n"
+        
+        response += "💰 وسائل الإيداع:\n"
+        for method in deposit_methods:
+            response += f"🏦 {method['name']}\n"
+        
+        response += f"\n💸 وسائل السحب:\n"
+        for method in withdraw_methods:
+            response += f"💳 {method['name']}\n"
+        
+        response += f"\n📝 المجموع: {len(deposit_methods + withdraw_methods)}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def show_detailed_stats(self, message):
+        """إحصائيات تفصيلية"""
+        # إحصائيات المستخدمين
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                users = list(csv.DictReader(f))
+                total_users = len(users)
+                banned_users = len([u for u in users if u.get('is_banned') == 'yes'])
+                today_users = len([u for u in users if u['date'].startswith(datetime.now().strftime('%Y-%m-%d'))])
+        except:
+            total_users = banned_users = today_users = 0
+        
+        # إحصائيات المعاملات
+        try:
+            with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                transactions = list(csv.DictReader(f))
+                total_trans = len(transactions)
+                pending_trans = len([t for t in transactions if t['status'] == 'pending'])
+                approved_trans = len([t for t in transactions if t['status'] == 'approved'])
+                rejected_trans = len([t for t in transactions if t['status'] == 'rejected'])
+                
+                # المبالغ
+                total_amount = sum(float(t.get('amount', 0)) for t in transactions if t['status'] == 'approved')
+                pending_amount = sum(float(t.get('amount', 0)) for t in transactions if t['status'] == 'pending')
+                
+                # اليوم
+                today = datetime.now().strftime('%Y-%m-%d')
+                today_trans = [t for t in transactions if t['date'].startswith(today)]
+                today_count = len(today_trans)
+                today_amount = sum(float(t.get('amount', 0)) for t in today_trans if t['status'] == 'approved')
+        except:
+            total_trans = pending_trans = approved_trans = rejected_trans = 0
+            total_amount = pending_amount = today_count = today_amount = 0
+        
+        response = f"""📊 الإحصائيات التفصيلية
+
+👥 المستخدمين:
+📋 المجموع: {total_users}
+✅ نشطين: {total_users - banned_users}
+🚫 محظورين: {banned_users}
+🆕 اليوم: {today_users}
+
+💰 المعاملات:
+📋 المجموع: {total_trans}
+⏳ معلقة: {pending_trans}
+✅ مُوافقة: {approved_trans}
+❌ مرفوضة: {rejected_trans}
+
+💵 المبالغ:
+✅ إجمالي مُوافق: {total_amount:,.0f} ريال
+⏳ معلق: {pending_amount:,.0f} ريال
+
+📈 إحصائيات اليوم:
+📋 معاملات: {today_count}
+💵 مبالغ: {today_amount:,.0f} ريال
+
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def prompt_broadcast(self, message):
+        """طلب الإرسال الجماعي"""
+        response = "📢 الإرسال الجماعي\n\nأرسل الرسالة التي تريد إرسالها لجميع المستخدمين:"
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = 'admin_broadcasting'
+    
+    def prompt_ban_user(self, message):
+        """طلب حظر مستخدم"""
+        response = "🚫 حظر مستخدم\n\nأرسل رقم العميل والسبب:\nمثال: C000001 مخالفة الشروط"
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = 'admin_banning'
+    
+    def prompt_unban_user(self, message):
+        """طلب إلغاء حظر مستخدم"""
+        response = "✅ إلغاء حظر مستخدم\n\nأرسل رقم العميل:\nمثال: C000001"
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = 'admin_unbanning'
     
     def handle_start(self, message):
         """بدء التسجيل"""
@@ -650,10 +919,163 @@ class AdvancedLangSenseBot:
         except:
             pass
         
+        # إشعار فوري محسن للأدمن مع تفاصيل كاملة
+        user = self.find_user(user_id)
+        admin_notification = f"""💰 طلب إيداع محدث - مرحلة 2
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+📱 تيليجرام: {user['telegram_id']}
+💵 المبلغ المطلوب: {amount} ريال
+📅 الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+🔢 المرحلة: انتظار إيصال التحويل
+
+🎯 الطلب جاهز للمراجعة النهائية
+📋 استخدم: /pending للمراجعة
+✅ استخدم: /approve {trans_id} للموافقة
+❌ استخدم: /reject {trans_id} السبب للرفض
+
+🔔 سيتم إشعارك فور استلام الإيصال"""
+        
+        self.notify_admins(admin_notification)
+        
         response = f"✅ تم استلام المبلغ: {amount} ريال\n\n📸 الآن يرجى إرسال صورة إيصال التحويل\n\nبعد إرسال الإيصال، سيتم مراجعة طلبك خلال 24 ساعة"
         
         self.send_message(message['chat']['id'], response)
         self.user_states[user_id] = f'deposit_receipt_{trans_id}'
+    
+    def process_admin_search(self, message):
+        """معالجة البحث من الأدمن"""
+        query = message['text']
+        results = self.search_users(query)
+        
+        if not results:
+            response = f"❌ لم يتم العثور على نتائج للبحث: {query}"
+        else:
+            response = f"🔍 نتائج البحث عن: {query}\n\n"
+            for user in results:
+                ban_status = "🚫 محظور" if user.get('is_banned') == 'yes' else "✅ نشط"
+                response += f"👤 {user['name']}\n🆔 {user['customer_id']}\n📱 {user['phone']}\n🔸 {ban_status}\n\n"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        del self.user_states[message['from']['id']]
+    
+    def process_admin_broadcast(self, message):
+        """معالجة الإرسال الجماعي"""
+        broadcast_message = message['text']
+        users_count = 0
+        success_count = 0
+        
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                users = list(csv.DictReader(f))
+                users_count = len(users)
+                
+                for user in users:
+                    if user.get('is_banned', 'no') == 'no':
+                        try:
+                            self.send_message(user['telegram_id'], f"📢 إعلان من الإدارة:\n\n{broadcast_message}")
+                            success_count += 1
+                        except:
+                            pass
+        except:
+            pass
+        
+        response = f"✅ تم إرسال الرسالة الجماعية\n\n📊 الإحصائيات:\n👥 إجمالي المستخدمين: {users_count}\n✅ تم الإرسال: {success_count}\n❌ فشل: {users_count - success_count}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        del self.user_states[message['from']['id']]
+    
+    def process_admin_ban(self, message):
+        """معالجة حظر مستخدم"""
+        parts = message['text'].split(' ', 1)
+        if len(parts) < 2:
+            self.send_message(message['chat']['id'], "❌ يرجى إدخال رقم العميل والسبب\nمثال: C000001 مخالفة الشروط", self.admin_keyboard())
+            del self.user_states[message['from']['id']]
+            return
+        
+        customer_id = parts[0]
+        reason = parts[1] if len(parts) > 1 else 'لم يذكر سبب'
+        
+        if self.ban_user(customer_id, reason, str(message['from']['id'])):
+            # البحث عن المستخدم لإرسال إشعار له
+            user = None
+            try:
+                with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['customer_id'] == customer_id:
+                            user = row
+                            break
+            except:
+                pass
+            
+            if user:
+                try:
+                    self.send_message(user['telegram_id'], f"🚫 تم حظر حسابك\n\nالسبب: {reason}\n\nللاستفسار تواصل مع الإدارة")
+                except:
+                    pass
+            
+            response = f"✅ تم حظر العميل {customer_id} بنجاح\nالسبب: {reason}"
+        else:
+            response = f"❌ فشل في حظر العميل {customer_id}\nتأكد من رقم العميل"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        del self.user_states[message['from']['id']]
+    
+    def process_admin_unban(self, message):
+        """معالجة إلغاء حظر مستخدم"""
+        customer_id = message['text'].strip()
+        
+        if self.unban_user(customer_id):
+            # البحث عن المستخدم لإرسال إشعار له
+            user = None
+            try:
+                with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['customer_id'] == customer_id:
+                            user = row
+                            break
+            except:
+                pass
+            
+            if user:
+                try:
+                    self.send_message(user['telegram_id'], f"✅ تم إلغاء حظر حسابك\n\nيمكنك الآن استخدام جميع الخدمات")
+                except:
+                    pass
+            
+            response = f"✅ تم إلغاء حظر العميل {customer_id} بنجاح"
+        else:
+            response = f"❌ فشل في إلغاء حظر العميل {customer_id}\nتأكد من رقم العميل"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        del self.user_states[message['from']['id']]
+    
+    def unban_user(self, customer_id):
+        """إلغاء حظر مستخدم"""
+        users = []
+        success = False
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['customer_id'] == customer_id:
+                        row['is_banned'] = 'no'
+                        row['ban_reason'] = ''
+                        success = True
+                    users.append(row)
+            
+            if success:
+                with open('users.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(users)
+        except:
+            pass
+        return success
     
     def run(self):
         """تشغيل البوت"""
