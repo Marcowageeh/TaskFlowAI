@@ -16,15 +16,15 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Simple System"
+args = "Comprehensive System"
 
 [[workflows.workflow]]
-name = "Simple System"
+name = "Comprehensive System"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python simple_improved_bot.py"
+args = "python comprehensive_bot.py"
 
 [workflows.workflow.metadata]
 outputType = "console"
