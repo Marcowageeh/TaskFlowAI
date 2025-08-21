@@ -78,6 +78,8 @@ Admin Commands: Simplified format without complex syntax requirements.
   - Comprehensive quick copy commands section with all admin operations
   - Pre-formatted commands for easy copying and modification
 - **Direct User Messaging**: Send targeted messages to specific customers using their customer ID
+- **Enhanced Payment Method Management**: Full CRUD operations with interactive selection interfaces
+- **Easy Copy Payment Data**: Customer-friendly display of payment account information with copy functionality
 - **Payment Method Commands**: 
   - `اضافة_وسيلة_دفع ID_الشركة اسم_الوسيلة نوع_الوسيلة البيانات`
   - `حذف_وسيلة_دفع ID_الوسيلة`

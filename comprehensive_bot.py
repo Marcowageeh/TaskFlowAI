@@ -797,6 +797,16 @@ class ComprehensiveLangSenseBot:
                     customer_id = admin_state.replace('sending_user_message_', '')
                     self.handle_user_message_content(message, customer_id)
                     return
+                elif admin_state == 'selecting_method_to_edit':
+                    self.handle_method_edit_selection(message)
+                    return
+                elif admin_state == 'selecting_method_to_delete':
+                    self.handle_method_delete_selection(message)
+                    return
+                elif admin_state.startswith('editing_method_'):
+                    method_id = admin_state.replace('editing_method_', '')
+                    self.handle_method_edit_data(message, method_id)
+                    return
             
             # معالجة النصوص والأزرار للأدمن
             self.handle_admin_actions(message)
@@ -1936,6 +1946,9 @@ class ComprehensiveLangSenseBot:
 • `حذف_وسيلة_دفع 123456`
 • `تعديل_وسيلة_دفع 123456 SA987654321098765432`
 
+📧 **أوامر الرسائل:**
+• النقر على "📧 إرسال رسالة لعميل" ثم إدخال رقم العميل
+
 👥 **أوامر إدارة المستخدمين:**
 • `بحث أحمد`
 • `بحث C123456`
@@ -2776,15 +2789,17 @@ class ComprehensiveLangSenseBot:
         company_id = state['company_id']
         company = self.get_company_by_id(company_id)
         
-        # عرض تفاصيل الوسيلة وطلب رقم المحفظة
+        # عرض تفاصيل الوسيلة وطلب رقم المحفظة مع خيار النسخ
         wallet_text = f"""✅ تم اختيار وسيلة الدفع: {selected_method['method_name']}
 
 💳 تفاصيل الوسيلة:
 📋 النوع: {selected_method['method_type']}
 🏢 الشركة: {company['name'] if company else 'غير محدد'}
-💡 معلومات: {selected_method['additional_info']}
+💰 رقم الحساب/المحفظة: `{selected_method['account_data']}`
+💡 معلومات إضافية: {selected_method.get('additional_info', 'لا توجد')}
 
-📝 الآن أدخل رقم محفظتك/حسابك:"""
+📋 يمكنك نسخ رقم الحساب أعلاه بسهولة
+📝 الآن أدخل رقم محفظتك/حسابك الشخصي:"""
         
         self.send_message(message['chat']['id'], wallet_text)
         
@@ -3056,6 +3071,154 @@ class ComprehensiveLangSenseBot:
                 return False, None
         except Exception as e:
             return False, None
+    
+    def handle_method_edit_selection(self, message):
+        """معالجة اختيار وسيلة الدفع للتعديل"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text == '🔙 العودة':
+            del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "تم الإلغاء", self.admin_keyboard())
+            return
+        
+        if text.startswith('تعديل '):
+            method_id = text.replace('تعديل ', '').strip()
+            
+            # البحث عن وسيلة الدفع
+            method = self.get_payment_method_by_id(method_id)
+            if not method:
+                self.send_message(message['chat']['id'], f"❌ لم يتم العثور على وسيلة الدفع {method_id}")
+                return
+            
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            # عرض تفاصيل الوسيلة وطلب البيانات الجديدة
+            edit_text = f"""✏️ تعديل وسيلة الدفع:
+
+🆔 المعرف: {method['id']}
+🏢 الشركة: {company_name}
+📋 الاسم: {method['method_name']}
+💳 النوع: {method['method_type']}
+📊 البيانات الحالية: {method['account_data']}
+💡 معلومات إضافية: {method['additional_info']}
+
+📝 أدخل البيانات الجديدة (رقم الحساب/المحفظة):
+
+⬅️ /cancel للإلغاء"""
+            
+            self.send_message(message['chat']['id'], edit_text)
+            self.user_states[user_id] = f'editing_method_{method_id}'
+    
+    def handle_method_delete_selection(self, message):
+        """معالجة اختيار وسيلة الدفع للحذف"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text == '🔙 العودة':
+            del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "تم الإلغاء", self.admin_keyboard())
+            return
+        
+        if text.startswith('حذف '):
+            method_id = text.replace('حذف ', '').strip()
+            
+            # حذف وسيلة الدفع
+            success, deleted_method = self.delete_payment_method(method_id)
+            
+            if success:
+                company = self.get_company_by_id(deleted_method['company_id'])
+                company_name = company['name'] if company else 'غير محدد'
+                
+                success_msg = f"""✅ تم حذف وسيلة الدفع بنجاح!
+
+🗑️ المحذوفة:
+🆔 المعرف: {deleted_method['id']}
+🏢 الشركة: {company_name}
+📋 الاسم: {deleted_method['method_name']}
+💳 النوع: {deleted_method['method_type']}"""
+                
+                self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            else:
+                self.send_message(message['chat']['id'], f"❌ فشل في حذف وسيلة الدفع {method_id}", self.admin_keyboard())
+            
+            del self.user_states[user_id]
+    
+    def handle_method_edit_data(self, message, method_id):
+        """معالجة تعديل بيانات وسيلة الدفع"""
+        user_id = message['from']['id']
+        new_data = message.get('text', '').strip()
+        
+        if new_data == '/cancel':
+            del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "تم إلغاء التعديل", self.admin_keyboard())
+            return
+        
+        if not new_data:
+            self.send_message(message['chat']['id'], "❌ البيانات فارغة. يرجى إدخال البيانات الجديدة:")
+            return
+        
+        # تحديث وسيلة الدفع
+        success = self.update_payment_method(method_id, new_data)
+        
+        if success:
+            method = self.get_payment_method_by_id(method_id)
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            success_msg = f"""✅ تم تحديث وسيلة الدفع بنجاح!
+
+📝 المُحدّثة:
+🆔 المعرف: {method['id']}
+🏢 الشركة: {company_name}
+📋 الاسم: {method['method_name']}
+💳 النوع: {method['method_type']}
+📊 البيانات الجديدة: {new_data}"""
+            
+            self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+        else:
+            self.send_message(message['chat']['id'], "❌ فشل في تحديث وسيلة الدفع", self.admin_keyboard())
+        
+        del self.user_states[user_id]
+    
+    def get_payment_method_by_id(self, method_id):
+        """الحصول على وسيلة دفع بواسطة المعرف"""
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        return row
+        except:
+            pass
+        return None
+    
+    def update_payment_method(self, method_id, new_account_data):
+        """تحديث بيانات وسيلة الدفع"""
+        try:
+            methods = []
+            updated = False
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        row['account_data'] = new_account_data
+                        updated = True
+                    methods.append(row)
+            
+            if updated:
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(methods)
+                
+                return True
+            return False
+        except Exception as e:
+            return False
 
 if __name__ == "__main__":
     # جلب التوكن
