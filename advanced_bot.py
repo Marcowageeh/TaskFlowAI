@@ -56,6 +56,31 @@ class AdvancedLangSenseBot:
                 for method in default_methods:
                     writer.writerow(method + [datetime.now().strftime('%Y-%m-%d')])
         
+        # إنشاء ملف الشكاوى
+        if not os.path.exists('complaints.csv'):
+            with open('complaints.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['id', 'customer_id', 'message', 'status', 'date'])
+        
+        # إنشاء ملف إعدادات النظام
+        if not os.path.exists('system_settings.csv'):
+            with open('system_settings.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['setting_key', 'setting_value', 'description'])
+                # إعدادات افتراضية
+                default_settings = [
+                    ['support_phone', '+966501234567', 'رقم هاتف الدعم الفني'],
+                    ['support_email', 'support@langsense.com', 'بريد الدعم الإلكتروني'], 
+                    ['company_name', 'شركة LangSense المالية', 'اسم الشركة'],
+                    ['min_deposit', '50', 'أقل مبلغ إيداع مسموح'],
+                    ['min_withdrawal', '100', 'أقل مبلغ سحب مسموح'],
+                    ['max_daily_withdrawal', '10000', 'أقصى مبلغ سحب يومي'],
+                    ['support_hours', '24/7', 'ساعات عمل الدعم'],
+                    ['welcome_message', 'مرحباً بك في نظام LangSense المالي المتقدم', 'رسالة الترحيب']
+                ]
+                for setting in default_settings:
+                    writer.writerow(setting)
+        
         logger.info("تم إنشاء جميع ملفات النظام بنجاح")
         
     def api_call(self, method, data=None):
@@ -293,11 +318,14 @@ class AdvancedLangSenseBot:
         # إنشاء المعاملة
         trans_id = f"DEP{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
-        response = f"""✅ تم اختيار وسيلة الإيداع: {selected_method}
+        response = f"""✅ تم اختيار الشركة: {selected_method}
 
 🆔 رقم المعاملة: {trans_id}
 📱 العميل: {user['name']} ({user['customer_id']})
-🏦 وسيلة الدفع: {selected_method}
+🏢 الشركة: {selected_method}
+💳 التفاصيل: {selected_method_info['details']}
+
+الآن، يرجى كتابة رقم حسابك/محفظتك في {selected_method}:
 
 📋 تفاصيل التحويل:
 {selected_method_info['details']}
@@ -336,7 +364,66 @@ class AdvancedLangSenseBot:
         self.notify_admins(admin_notification)
         
         self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = f'deposit_wallet_{trans_id}_{selected_method}'
+    
+    def process_deposit_wallet(self, message):
+        """معالجة رقم المحفظة/الحساب للإيداع"""
+        state_parts = self.user_states[message['from']['id']].split('_')
+        trans_id = state_parts[2]
+        selected_method = '_'.join(state_parts[3:])
+        
+        wallet_number = message['text'].strip()
+        
+        if not wallet_number or len(wallet_number) < 5:
+            self.send_message(message['chat']['id'], 
+                "❌ رقم المحفظة/الحساب غير صحيح. يرجى إدخال رقم صحيح:")
+            return
+        
+        # تحديث المعاملة برقم المحفظة
+        transactions = []
+        try:
+            with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == trans_id:
+                        row['receipt_info'] = f"رقم المحفظة: {wallet_number}"
+                        row['status'] = 'amount_pending'
+                    transactions.append(row)
+            
+            with open('transactions.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                fieldnames = ['id', 'customer_id', 'telegram_id', 'name', 'type', 'amount', 'status', 'date', 'admin_note', 'payment_method', 'receipt_info', 'processed_by']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(transactions)
+        except:
+            pass
+        
+        response = f"""✅ تم حفظ رقم المحفظة: {wallet_number}
+
+🆔 رقم المعاملة: {trans_id}
+🏢 الشركة: {selected_method}
+💳 رقم المحفظة: {wallet_number}
+
+الآن أدخل المبلغ المطلوب إيداعه (بالريال السعودي):"""
+        
+        self.send_message(message['chat']['id'], response)
+        
+        # تحديث الحالة لإدخال المبلغ
         self.user_states[message['from']['id']] = f'deposit_amount_{trans_id}'
+        
+        # إشعار محدث للأدمن
+        user = self.find_user(message['from']['id'])
+        admin_msg = f"""🔔 تحديث طلب إيداع - مرحلة 2
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+🏢 الشركة: {selected_method}
+💳 رقم المحفظة: {wallet_number}
+⏰ الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+⏳ في انتظار إدخال المبلغ..."""
+        
+        self.notify_admins(admin_msg)
     
     def handle_admin_search(self, message):
         """البحث في المستخدمين للأدمن"""
@@ -474,6 +561,21 @@ class AdvancedLangSenseBot:
             elif text == '⚙️ تعديل وسائل الدفع':
                 self.show_edit_payment_methods(message)
                 return
+            elif text == '⚙️ إدارة إعدادات النظام':
+                self.show_system_settings(message)
+                return
+            elif text.startswith('/editsetting '):
+                self.handle_edit_setting(message)
+                return
+            elif text.startswith('/editcompany '):
+                self.handle_edit_company(message)
+                return
+            elif text.startswith('/addcompany '):
+                self.handle_add_company(message)
+                return
+            elif text.startswith('/deletecompany '):
+                self.handle_delete_company(message)
+                return
             elif text == '🏠 القائمة الرئيسية':
                 user = self.find_user(user_id)
                 lang = user.get('language', 'ar') if user else 'ar'
@@ -486,6 +588,9 @@ class AdvancedLangSenseBot:
             state = self.user_states[user_id]
             if state == 'selecting_deposit_method':
                 self.process_deposit_method_selection(message)
+                return
+            elif state.startswith('deposit_wallet_'):
+                self.process_deposit_wallet(message)
                 return
             elif state.startswith('deposit_amount_'):
                 self.process_deposit_amount(message)
@@ -1372,6 +1477,186 @@ withdraw فودافون كاش رقم المحفظة: 01012345678"""
         
         self.send_message(message['chat']['id'], response, self.admin_keyboard())
         del self.user_states[message['from']['id']]
+
+    def show_system_settings(self, message):
+        """عرض إعدادات النظام"""
+        try:
+            settings_text = "⚙️ إعدادات النظام الحالية:\n\n"
+            
+            with open('system_settings.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    settings_text += f"🔹 <b>{row['description']}</b>\n"
+                    settings_text += f"📝 المفتاح: <code>{row['setting_key']}</code>\n"
+                    settings_text += f"💬 القيمة: {row['setting_value']}\n\n"
+            
+            settings_text += "\n📖 الأوامر المتاحة:\n"
+            settings_text += "/editsetting مفتاح_الإعداد القيمة_الجديدة\n"
+            settings_text += "\nمثال:\n/editsetting support_phone +966502345678"
+            
+            self.send_message(message['chat']['id'], settings_text, self.admin_keyboard())
+            
+        except Exception as e:
+            self.send_message(message['chat']['id'], f"❌ خطأ في عرض الإعدادات: {str(e)}", self.admin_keyboard())
+    
+    def handle_edit_setting(self, message):
+        """تعديل إعداد النظام"""
+        try:
+            parts = message['text'].split(' ', 2)
+            if len(parts) < 3:
+                self.send_message(message['chat']['id'], "❌ تنسيق خاطئ. استخدم:\n/editsetting مفتاح_الإعداد القيمة_الجديدة", self.admin_keyboard())
+                return
+            
+            setting_key = parts[1]
+            new_value = parts[2]
+            
+            # قراءة الإعدادات
+            settings = []
+            found = False
+            with open('system_settings.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['setting_key'] == setting_key:
+                        row['setting_value'] = new_value
+                        found = True
+                    settings.append(row)
+            
+            if found:
+                # كتابة الإعدادات المحدثة
+                with open('system_settings.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['setting_key', 'setting_value', 'description']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(settings)
+                
+                response = f"✅ تم تحديث {setting_key} إلى: {new_value}"
+            else:
+                response = f"❌ لم يتم العثور على إعداد بالمفتاح: {setting_key}"
+                
+        except Exception as e:
+            response = f"❌ خطأ في التعديل: {str(e)}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def handle_add_company(self, message):
+        """إضافة شركة جديدة"""
+        try:
+            parts = message['text'].split(' ', 3)
+            if len(parts) < 4:
+                self.send_message(message['chat']['id'], 
+                    "❌ تنسيق خاطئ. استخدم:\n/addcompany اسم_الشركة نوع_الخدمة تفاصيل_الشركة\n\n"
+                    "مثال:\n/addcompany \"فودافون كاش\" withdraw \"محفظة إلكترونية\"", 
+                    self.admin_keyboard())
+                return
+            
+            company_name = parts[1].strip('"')
+            service_type = parts[2]
+            company_details = parts[3].strip('"')
+            
+            if service_type not in ['deposit', 'withdraw', 'both']:
+                self.send_message(message['chat']['id'], "❌ نوع الخدمة يجب أن يكون: deposit, withdraw, أو both", self.admin_keyboard())
+                return
+            
+            # إنشاء معرف جديد
+            new_id = str(int(datetime.now().timestamp()))
+            
+            # إضافة الشركة لملف وسائل الدفع
+            with open('payment_methods.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow([new_id, company_name, service_type, company_details, 'active', datetime.now().strftime('%Y-%m-%d')])
+            
+            response = f"✅ تم إضافة الشركة بنجاح!\n🆔 المعرف: {new_id}\n🏢 الاسم: {company_name}\n⚡ نوع الخدمة: {service_type}"
+            
+        except Exception as e:
+            response = f"❌ خطأ في إضافة الشركة: {str(e)}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def handle_edit_company(self, message):
+        """تعديل شركة موجودة"""
+        try:
+            parts = message['text'].split(' ', 4)
+            if len(parts) < 5:
+                self.send_message(message['chat']['id'], 
+                    "❌ تنسيق خاطئ. استخدم:\n/editcompany معرف_الشركة اسم_جديد نوع_الخدمة تفاصيل_جديدة", 
+                    self.admin_keyboard())
+                return
+            
+            company_id = parts[1]
+            new_name = parts[2].strip('"')
+            new_type = parts[3]
+            new_details = parts[4].strip('"')
+            
+            # قراءة وتعديل الشركات
+            companies = []
+            found = False
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == company_id:
+                        row['name'] = new_name
+                        row['type'] = new_type
+                        row['details'] = new_details
+                        found = True
+                    companies.append(row)
+            
+            if found:
+                # إعادة كتابة الملف
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'name', 'type', 'details', 'is_active', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(companies)
+                
+                response = f"✅ تم تحديث الشركة رقم {company_id}\n🏢 الاسم الجديد: {new_name}"
+            else:
+                response = f"❌ لم يتم العثور على شركة برقم {company_id}"
+                
+        except Exception as e:
+            response = f"❌ خطأ في تعديل الشركة: {str(e)}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+    
+    def handle_delete_company(self, message):
+        """حذف شركة"""
+        try:
+            parts = message['text'].split(' ')
+            if len(parts) < 2:
+                self.send_message(message['chat']['id'], "❌ استخدم: /deletecompany معرف_الشركة", self.admin_keyboard())
+                return
+            
+            company_id = parts[1]
+            
+            # قراءة وحذف الشركة
+            companies = []
+            found = False
+            deleted_name = ""
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] != company_id:
+                        companies.append(row)
+                    else:
+                        found = True
+                        deleted_name = row['name']
+            
+            if found:
+                # إعادة كتابة الملف بدون الشركة المحذوفة
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'name', 'type', 'details', 'is_active', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(companies)
+                
+                response = f"✅ تم حذف الشركة: {deleted_name}"
+            else:
+                response = f"❌ لم يتم العثور على شركة برقم {company_id}"
+                
+        except Exception as e:
+            response = f"❌ خطأ في حذف الشركة: {str(e)}"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
     
     def run(self):
         """تشغيل البوت"""
