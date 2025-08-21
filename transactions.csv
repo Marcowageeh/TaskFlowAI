@@ -1,1 +1,2 @@
-﻿id,customer_id,telegram_id,name,type,company,wallet_number,amount,exchange_address,status,date,admin_note,processed_by
+﻿id,customer_id,telegram_id,name,type,company,wallet_number,amount,exchange_address,status,date,confirmation_code,admin_note
+DEP20250821171838,C000002,6004754785,Yasoo,deposit,بنك الأغععععغهلي__8976465,,50.0,,approved,2025-08-21 17:18,,موافق من الأدمن

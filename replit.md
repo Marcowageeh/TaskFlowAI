@@ -38,9 +38,11 @@ Admin Commands: Simplified format without complex syntax requirements.
 
 ### Financial Services Workflow
 - **Deposit Process**: Company Selection → Wallet Number → Amount → Completion
-- **Withdrawal Process**: Company Selection → Wallet Number → Amount → Exchange Address → Confirmation
+- **Withdrawal Process**: Company Selection → Wallet Number → Amount → **Withdrawal Address Entry** → **Confirmation Code Entry** → Final Confirmation
 - **Status Tracking**: Simple pending/approved/rejected states
 - **Admin Approval**: Direct text-based commands (موافقة/رفض)
+- **Withdrawal Address**: Users must specify withdrawal address for each request
+- **Confirmation Code**: Required verification code from customer before processing
 
 ### Company & Address Management
 - **Company Management**: Simple add/delete commands without complex formatting

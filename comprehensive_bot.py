@@ -528,23 +528,120 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "❌ مبلغ غير صحيح. يرجى إدخال رقم صحيح:")
                 return
             
-            # عرض عنوان الصرافة والتأكيد
-            exchange_address = self.get_exchange_address()
-            confirm_text = f"""📍 عنوان مكتب الصرافة:
-{exchange_address}
+            # الانتقال لمرحلة عنوان السحب
+            address_text = f"""✅ تم تأكيد المبلغ: {amount} ريال
+
+📍 عنوان السحب: 
+يرجى إدخال عنوان السحب الذي تريد استلام المبلغ منه:
+
+💡 مثال: شارع الملك فهد، الرياض"""
+            
+            self.send_message(message['chat']['id'], address_text)
+            self.user_states[user_id] = f'withdraw_address_{company_id}_{company_name}_{wallet_number}_{amount}'
+            
+        elif state.startswith('withdraw_address_'):
+            # فصل البيانات من الحالة
+            data_part = state.replace('withdraw_address_', '')
+            parts = data_part.split('_')
+            company_id = parts[0] if len(parts) > 0 else ''
+            company_name = parts[1] if len(parts) > 1 else ''
+            wallet_number = parts[2] if len(parts) > 2 else ''
+            amount = parts[3] if len(parts) > 3 else ''
+            withdrawal_address = text.strip()
+            
+            if len(withdrawal_address) < 5:
+                self.send_message(message['chat']['id'], "❌ عنوان قصير جداً. يرجى إدخال عنوان مفصل:")
+                return
+            
+            # طلب كود التأكيد
+            confirm_text = f"""✅ تم تسجيل عنوان السحب: {withdrawal_address}
 
 📋 مراجعة طلب السحب:
 🏢 الشركة: {company_name}
 💳 رقم المحفظة: {wallet_number}
 💰 المبلغ: {amount} ريال
-📍 العنوان: {exchange_address}
+📍 عنوان السحب: {withdrawal_address}
 
-⚠️ يرجى زيارة المكتب لاستلام المبلغ عند الموافقة
+🔐 يرجى إرسال كود التأكيد:"""
+            
+            self.send_message(message['chat']['id'], confirm_text)
+            self.user_states[user_id] = f'withdraw_confirmation_code_{company_id}_{company_name}_{wallet_number}_{amount}_{withdrawal_address}'
+            
+        elif state.startswith('withdraw_confirmation_code_'):
+            # فصل البيانات من الحالة
+            data_part = state.replace('withdraw_confirmation_code_', '')
+            parts = data_part.split('_')
+            company_id = parts[0] if len(parts) > 0 else ''
+            company_name = parts[1] if len(parts) > 1 else ''
+            wallet_number = parts[2] if len(parts) > 2 else ''
+            amount = parts[3] if len(parts) > 3 else ''
+            withdrawal_address = parts[4] if len(parts) > 4 else ''
+            confirmation_code = text.strip()
+            
+            if len(confirmation_code) < 3:
+                self.send_message(message['chat']['id'], "❌ كود التأكيد قصير جداً. يرجى إدخال كود صحيح:")
+                return
+            
+            # التأكيد النهائي
+            final_confirm_text = f"""📋 مراجعة نهائية لطلب السحب:
+
+🏢 الشركة: {company_name}
+💳 رقم المحفظة: {wallet_number}
+💰 المبلغ: {amount} ريال
+📍 عنوان السحب: {withdrawal_address}
+🔐 كود التأكيد: {confirmation_code}
 
 أرسل "تأكيد" لإرسال الطلب أو "إلغاء" للعودة"""
             
-            self.send_message(message['chat']['id'], confirm_text)
-            self.user_states[user_id] = f'withdraw_confirm_{company_id}_{company_name}_{wallet_number}_{amount}_{exchange_address}'
+            self.send_message(message['chat']['id'], final_confirm_text)
+            self.user_states[user_id] = f'withdraw_final_confirm_{company_id}_{company_name}_{wallet_number}_{amount}_{withdrawal_address}_{confirmation_code}'
+            
+        elif state.startswith('withdraw_final_confirm_'):
+            # فصل البيانات من الحالة
+            data_part = state.replace('withdraw_final_confirm_', '')
+            parts = data_part.split('_')
+            company_id = parts[0] if len(parts) > 0 else ''
+            company_name = parts[1] if len(parts) > 1 else ''
+            wallet_number = parts[2] if len(parts) > 2 else ''
+            amount = parts[3] if len(parts) > 3 else ''
+            withdrawal_address = parts[4] if len(parts) > 4 else ''
+            confirmation_code = parts[5] if len(parts) > 5 else ''
+            
+            if text.lower() in ['تأكيد', 'confirm', 'yes']:
+                # إنشاء المعاملة
+                user = self.find_user(user_id)
+                trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
+                
+                # حفظ المعاملة مع عنوان السحب وكود التأكيد
+                with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([trans_id, user['customer_id'], user['telegram_id'], user['name'], 
+                                   'withdraw', company_name, wallet_number, amount, withdrawal_address, 'pending', 
+                                   datetime.now().strftime('%Y-%m-%d %H:%M'), confirmation_code, ''])
+                
+                # رسالة تأكيد للعميل
+                confirmation_msg = f"""✅ تم إرسال طلب السحب بنجاح
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+🏢 الشركة: {company_name}
+💳 رقم المحفظة: {wallet_number}
+💰 المبلغ: {amount} ريال
+📍 عنوان السحب: {withdrawal_address}
+🔐 كود التأكيد: {confirmation_code}
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+⏳ الحالة: في انتظار المراجعة
+
+سيتم إشعارك فور الموافقة على طلبك."""
+                
+                self.send_message(message['chat']['id'], confirmation_msg, self.main_keyboard(user.get('language', 'ar')))
+                del self.user_states[user_id]
+                
+            elif text.lower() in ['إلغاء', 'cancel']:
+                self.send_message(message['chat']['id'], "تم إلغاء العملية", self.main_keyboard())
+                del self.user_states[user_id]
+            else:
+                self.send_message(message['chat']['id'], "يرجى الإجابة بـ 'تأكيد' أو 'إلغاء':")
             
         elif state.startswith('withdraw_confirm_'):
             if text.lower() in ['تأكيد', 'confirm']:
