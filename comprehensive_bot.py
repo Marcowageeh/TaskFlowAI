@@ -712,6 +712,9 @@ class ComprehensiveLangSenseBot:
                 if admin_state == 'admin_broadcasting':
                     self.send_broadcast_message(message, text)
                     return
+                elif admin_state.startswith('adding_company_'):
+                    self.handle_add_company_wizard(message, text)
+                    return
             
             # معالجة النصوص والأزرار للأدمن
             self.handle_admin_actions(message)
@@ -778,7 +781,7 @@ class ComprehensiveLangSenseBot:
         elif text == '✅ إلغاء حظر':
             self.prompt_unban_user(message)
         elif text == '📝 إضافة شركة':
-            self.prompt_add_company(message)
+            self.start_add_company_wizard(message)
         elif text == '⚙️ إدارة الشركات':
             self.show_companies_management(message)
         elif text == '📍 إدارة العناوين':
@@ -1037,28 +1040,54 @@ class ComprehensiveLangSenseBot:
         # تنسيق: اضافة_شركة اسم نوع تفاصيل
         parts = text.replace('اضافة_شركة ', '').split(' ', 2)
         if len(parts) < 3:
-            help_text = """❌ تنسيق خاطئ للإضافة
+            help_text = """❌ طريقة إضافة الشركة:
 
-الصيغة الصحيحة:
+📝 اكتب بالضبط:
 اضافة_شركة اسم_الشركة نوع_الخدمة التفاصيل
 
-أنواع الخدمة:
-• deposit (إيداع فقط)
-• withdraw (سحب فقط)  
-• both (إيداع وسحب)
+🔹 أنواع الخدمة (بالإنجليزي):
+• ايداع → deposit
+• سحب → withdraw  
+• ايداع وسحب → both
 
-مثال:
-اضافة_شركة مدى both محفظة_رقمية"""
+📋 أمثلة صحيحة:
+▫️ اضافة_شركة مدى both محفظة_رقمية
+▫️ اضافة_شركة البنك_الأهلي deposit حساب_بنكي
+▫️ اضافة_شركة فودافون_كاش withdraw محفظة_الكترونية
+▫️ اضافة_شركة STC_Pay both خدمات_دفع"""
             
             self.send_message(message['chat']['id'], help_text, self.admin_keyboard())
             return
         
         company_name = parts[0].replace('_', ' ')
-        service_type = parts[1]
+        service_type = parts[1].lower()
         details = parts[2].replace('_', ' ')
         
+        # قبول الكلمات العربية وتحويلها
+        if service_type in ['ايداع', 'إيداع']:
+            service_type = 'deposit'
+        elif service_type in ['سحب']:
+            service_type = 'withdraw'
+        elif service_type in ['كلاهما', 'الكل', 'ايداع_وسحب']:
+            service_type = 'both'
+        
         if service_type not in ['deposit', 'withdraw', 'both']:
-            self.send_message(message['chat']['id'], "❌ نوع الخدمة يجب أن يكون: deposit أو withdraw أو both", self.admin_keyboard())
+            error_text = """❌ نوع الخدمة خطأ!
+
+✅ الأنواع المقبولة:
+• deposit (للإيداع فقط)
+• withdraw (للسحب فقط)
+• both (للإيداع والسحب)
+
+أو بالعربي:
+• ايداع → deposit
+• سحب → withdraw
+• كلاهما → both
+
+مثال صحيح:
+اضافة_شركة مدى both محفظة_رقمية"""
+            
+            self.send_message(message['chat']['id'], error_text, self.admin_keyboard())
             return
         
         # إنشاء معرف جديد
@@ -1191,15 +1220,129 @@ class ComprehensiveLangSenseBot:
         """طلب إضافة شركة"""
         add_company_help = """📝 إضافة شركة جديدة
 
-الصيغة: اضافة_شركة اسم_الشركة نوع_الخدمة التفاصيل
+📋 الفورمة الصحيحة:
+اضافة_شركة اسم_الشركة نوع_الخدمة التفاصيل
 
-أنواع الخدمة:
-• deposit (إيداع فقط)
-• withdraw (سحب فقط)
-• both (إيداع وسحب)
+🔸 أنواع الخدمة:
+• deposit = إيداع فقط
+• withdraw = سحب فقط  
+• both = إيداع وسحب
 
-مثال: اضافة_شركة بنك_الأهلي deposit حساب_بنكي_رقم_1234567890"""
+✅ أمثلة جاهزة للنسخ:
+
+▫️ اضافة_شركة بنك_الراجحي deposit حساب_بنكي_رقم_1234567890
+
+▫️ اضافة_شركة فودافون_كاش withdraw محفظة_الكترونية
+
+▫️ اضافة_شركة STC_Pay both محفظة_رقمية_شاملة
+
+▫️ اضافة_شركة مدى both خدمات_دفع_متعددة
+
+💡 نصيحة: انسخ أي مثال وغير الاسم والتفاصيل فقط!"""
         self.send_message(message['chat']['id'], add_company_help, self.admin_keyboard())
+    
+    def start_add_company_wizard(self, message):
+        """بدء معالج إضافة شركة تفاعلي"""
+        wizard_text = """🧙‍♂️ معالج إضافة الشركة
+
+سأساعدك في إضافة شركة بطريقة سهلة!
+
+📝 أولاً: ما اسم الشركة؟
+(مثال: بنك الراجحي، فودافون كاش، مدى)"""
+        
+        self.send_message(message['chat']['id'], wizard_text)
+        self.user_states[message['from']['id']] = 'adding_company_name'
+    
+    def handle_add_company_wizard(self, message, text):
+        """معالجة معالج إضافة الشركة"""
+        user_id = message['from']['id']
+        state = self.user_states.get(user_id, '')
+        
+        if state == 'adding_company_name':
+            company_name = text.strip()
+            if len(company_name) < 2:
+                self.send_message(message['chat']['id'], "❌ اسم قصير جداً. أدخل اسم الشركة:")
+                return
+            
+            # عرض أنواع الخدمة
+            service_keyboard = {
+                'keyboard': [
+                    [{'text': '💰 إيداع فقط'}, {'text': '💸 سحب فقط'}],
+                    [{'text': '🔄 إيداع وسحب معاً'}],
+                    [{'text': '❌ إلغاء'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(message['chat']['id'], f"✅ اسم الشركة: {company_name}\n\n🔹 اختر نوع الخدمة:", service_keyboard)
+            self.user_states[user_id] = f'adding_company_type_{company_name}'
+            
+        elif state.startswith('adding_company_type_'):
+            company_name = state.replace('adding_company_type_', '')
+            
+            if text == '❌ إلغاء':
+                self.send_message(message['chat']['id'], "تم إلغاء إضافة الشركة", self.admin_keyboard())
+                del self.user_states[user_id]
+                return
+            
+            # تحديد نوع الخدمة
+            if text == '💰 إيداع فقط':
+                service_type = 'deposit'
+                service_ar = 'إيداع فقط'
+            elif text == '💸 سحب فقط':
+                service_type = 'withdraw'
+                service_ar = 'سحب فقط'
+            elif text == '🔄 إيداع وسحب معاً':
+                service_type = 'both'
+                service_ar = 'إيداع وسحب'
+            else:
+                self.send_message(message['chat']['id'], "❌ اختر من الأزرار المتاحة:")
+                return
+            
+            self.send_message(message['chat']['id'], f"""✅ تم اختيار: {service_ar}
+
+📝 الآن أدخل تفاصيل الشركة:
+(مثال: حساب بنكي رقم 1234567890، محفظة إلكترونية، خدمات دفع متعددة)""")
+            
+            self.user_states[user_id] = f'adding_company_details_{company_name}_{service_type}'
+            
+        elif state.startswith('adding_company_details_'):
+            parts = state.replace('adding_company_details_', '').rsplit('_', 1)
+            company_name = parts[0]
+            service_type = parts[1]
+            details = text.strip()
+            
+            if len(details) < 3:
+                self.send_message(message['chat']['id'], "❌ تفاصيل قصيرة جداً. أدخل وصف مناسب:")
+                return
+            
+            # إنشاء الشركة
+            company_id = str(int(datetime.now().timestamp()))
+            
+            try:
+                with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([company_id, company_name, service_type, details, 'active'])
+                
+                service_ar = "إيداع فقط" if service_type == 'deposit' else "سحب فقط" if service_type == 'withdraw' else "إيداع وسحب"
+                
+                success_msg = f"""✅ تم إضافة الشركة بنجاح!
+
+🆔 المعرف: {company_id}
+🏢 الاسم: {company_name}
+⚡ النوع: {service_ar}
+📋 التفاصيل: {details}
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+الشركة أصبحت متاحة الآن للعملاء."""
+                
+                self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                del self.user_states[user_id]
+                
+            except Exception as e:
+                self.send_message(message['chat']['id'], f"❌ فشل في إضافة الشركة: {str(e)}", self.admin_keyboard())
+                del self.user_states[user_id]
     
     def show_companies_management(self, message):
         """عرض إدارة الشركات"""
