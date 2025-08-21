@@ -878,7 +878,7 @@ class ComprehensiveLangSenseBot:
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
-        elif text in ['🔙 العودة للقائمة الرئيسية']:
+        elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة']:
             if user_id in self.user_states:
                 del self.user_states[user_id]
             self.send_message(chat_id, "تم العودة للقائمة الرئيسية", self.main_keyboard(user.get('language', 'ar')))
@@ -928,10 +928,15 @@ class ComprehensiveLangSenseBot:
             self.prompt_delete_company(message)
         elif text == '🔄 تحديث القائمة':
             self.show_companies_management_enhanced(message)
-        elif text == '↩️ العودة للوحة الأدمن':
+        elif text in ['↩️ العودة للوحة الأدمن', '🏠 لوحة الأدمن']:
             self.handle_admin_panel(message)
-        elif text == '↩️ العودة':
-            self.show_payment_methods_management(message)
+        elif text in ['↩️ العودة', '🔙 العودة']:
+            # تحديد السياق المناسب للعودة
+            user_state = self.user_states.get(message['from']['id'])
+            if user_state and 'payment' in str(user_state):
+                self.show_payment_methods_management(message)
+            else:
+                self.handle_admin_panel(message)
         elif text == '📍 إدارة العناوين':
             self.show_addresses_management(message)
         elif text == '⚙️ إعدادات النظام':
@@ -2786,7 +2791,7 @@ class ComprehensiveLangSenseBot:
             companies_text += f"🔹 {company['name']} (#{company['id']})\n"
             keyboard.append([{'text': f"{company['name']} (#{company['id']})"}])
         
-        keyboard.append([{'text': '❌ إلغاء'}])
+        keyboard.append([{'text': '🔙 العودة'}])
         
         self.user_states[user_id] = {
             'step': 'adding_payment_method_select_company',
@@ -2806,7 +2811,7 @@ class ComprehensiveLangSenseBot:
         user_id = message['from']['id']
         state = self.user_states.get(user_id, {})
         
-        if text == '🔙 العودة لاختيار الشركة':
+        if text in ['🔙 العودة لاختيار الشركة', '🔙 العودة', '⬅️ العودة']:
             # العودة لاختيار الشركة
             transaction_type = state.get('transaction_type')
             if transaction_type == 'deposit':
@@ -3121,8 +3126,9 @@ class ComprehensiveLangSenseBot:
         user_id = message['from']['id']
         text = message.get('text', '').strip()
         
-        if text == '🔙 العودة':
-            del self.user_states[user_id]
+        if text in ['🔙 العودة', '⬅️ العودة', '↩️ العودة']:
+            if user_id in self.user_states:
+                del self.user_states[user_id]
             self.send_message(message['chat']['id'], "تم الإلغاء", self.admin_keyboard())
             return
         
@@ -3160,8 +3166,9 @@ class ComprehensiveLangSenseBot:
         user_id = message['from']['id']
         text = message.get('text', '').strip()
         
-        if text == '🔙 العودة':
-            del self.user_states[user_id]
+        if text in ['🔙 العودة', '⬅️ العودة', '↩️ العودة']:
+            if user_id in self.user_states:
+                del self.user_states[user_id]
             self.send_message(message['chat']['id'], "تم الإلغاء", self.admin_keyboard())
             return
         
