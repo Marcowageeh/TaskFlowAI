@@ -149,14 +149,26 @@ class ComprehensiveLangSenseBot:
         """جلب الشركات النشطة"""
         companies = []
         try:
+            # التأكد من وجود الملف
             with open('companies.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    if row.get('is_active', 'active') == 'active':
-                        if service_type is None or row['type'] in [service_type, 'both']:
+                    # التأكد من أن الشركة نشطة
+                    if row.get('is_active', '').lower() in ['active', 'yes', '1', 'true']:
+                        # فلترة حسب نوع الخدمة
+                        if not service_type:
                             companies.append(row)
-        except:
-            pass
+                        elif row['type'] == service_type or row['type'] == 'both':
+                            companies.append(row)
+        except FileNotFoundError:
+            # إنشاء ملف الشركات إذا لم يكن موجوداً
+            with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
+        except Exception as e:
+            # تسجيل الخطأ للتشخيص
+            logger.error(f"خطأ في قراءة ملف الشركات: {e}")
+        
         return companies
     
     def get_exchange_address(self):
@@ -1043,7 +1055,7 @@ class ComprehensiveLangSenseBot:
             customer_id = text.replace('الغاء_حظر ', '')
             self.unban_user_admin(message, customer_id)
         elif text.startswith('اضافة_شركة '):
-            self.add_company_simple(message, text)
+            self.add_company_simple_with_display(message, text)
         elif text.startswith('حذف_شركة '):
             company_id = text.replace('حذف_شركة ', '')
             self.delete_company_simple(message, company_id)
@@ -1300,6 +1312,13 @@ class ComprehensiveLangSenseBot:
         
         self.send_message(message['chat']['id'], stats_text, self.admin_keyboard())
     
+    def add_company_simple_with_display(self, message, text):
+        """إضافة شركة مع عرض القائمة المحدثة"""
+        self.add_company_simple(message, text)
+        # عرض قائمة الشركات المحدثة بعد ثانيتين
+        import threading
+        threading.Timer(2.0, lambda: self.show_companies_management_enhanced(message)).start()
+    
     def add_company_simple(self, message, text):
         """إضافة شركة بصيغة مبسطة"""
         # تنسيق: اضافة_شركة اسم نوع تفاصيل
@@ -1359,18 +1378,52 @@ class ComprehensiveLangSenseBot:
         company_id = str(int(datetime.now().timestamp()))
         
         try:
+            # التأكد من وجود الملف وإنشاؤه إذا لم يكن موجوداً
+            file_exists = True
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    pass
+            except FileNotFoundError:
+                file_exists = False
+            
+            # إنشاء الملف مع الرؤوس إذا لم يكن موجوداً
+            if not file_exists:
+                with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['id', 'name', 'type', 'details', 'is_active'])
+            
+            # إضافة الشركة الجديدة
             with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
                 writer.writerow([company_id, company_name, service_type, details, 'active'])
             
-            success_msg = f"""✅ تم إضافة الشركة بنجاح
+            # رسالة النجاح مع عرض قائمة الشركات المحدثة
+            success_msg = f"""✅ تم إضافة الشركة بنجاح!
 
 🆔 المعرف: {company_id}
 🏢 الاسم: {company_name}
 ⚡ النوع: {service_type}
-📋 التفاصيل: {details}"""
+📋 التفاصيل: {details}
+
+📋 قائمة الشركات المحدثة:"""
+            
+            # عرض جميع الشركات
+            try:
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    company_count = 0
+                    for row in reader:
+                        company_count += 1
+                        status = "✅" if row.get('is_active') == 'active' else "❌"
+                        type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(row['type'], row['type'])
+                        success_msg += f"\n{status} {row['name']} (ID: {row['id']}) - {type_display}"
+                    
+                    success_msg += f"\n\n📊 إجمالي الشركات: {company_count}"
+            except:
+                pass
             
             self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            
         except Exception as e:
             self.send_message(message['chat']['id'], f"❌ فشل في إضافة الشركة: {str(e)}", self.admin_keyboard())
     
