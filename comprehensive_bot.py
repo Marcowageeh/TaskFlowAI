@@ -824,6 +824,15 @@ class ComprehensiveLangSenseBot:
         if text == '/start':
             self.handle_start(message)
             return
+            
+        # معالجة زر إعادة التعيين أولاً (أولوية عالية)
+        if text in ['🔄 إعادة تعيين النظام', '🔄 Reset System', '🔄 إعادة تعيين', '🆘 إصلاح شامل']:
+            user = self.find_user(user_id)
+            if user:
+                self.super_reset_user_system(user_id, chat_id, user)
+            else:
+                self.handle_start(message)
+            return
         
         # معالجة الحالات المختلفة
         if user_id in self.user_states:
