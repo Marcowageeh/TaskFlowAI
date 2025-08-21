@@ -447,6 +447,23 @@ class ComprehensiveLangSenseBot:
             
             self.send_message(message['chat']['id'], confirmation, self.main_keyboard(user.get('language', 'ar')))
             del self.user_states[user_id]
+            
+            # إشعار فوري للأدمن بطلب الإيداع
+            for admin_id in self.admin_user_ids:
+                try:
+                    admin_notification = f"""🔔 طلب إيداع جديد
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+🏢 الشركة: {company_name}
+💳 رقم المحفظة: {wallet_number}
+💰 المبلغ: {amount} ريال
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+لمراجعة الطلب: موافقة {trans_id} أو رفض {trans_id} [سبب]"""
+                    self.send_message(admin_id, admin_notification)
+                except:
+                    pass
     
     def process_withdrawal_flow(self, message):
         """معالجة تدفق السحب الكامل"""
@@ -528,45 +545,20 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], "❌ مبلغ غير صحيح. يرجى إدخال رقم صحيح:")
                 return
             
-            # الانتقال لمرحلة عنوان السحب
-            address_text = f"""✅ تم تأكيد المبلغ: {amount} ريال
+            # عرض عنوان السحب الثابت وطلب كود التأكيد
+            withdrawal_address = self.get_exchange_address()
+            
+            confirm_text = f"""✅ تم تأكيد المبلغ: {amount} ريال
 
 📍 عنوان السحب: 
-يرجى إدخال عنوان السحب الذي تريد استلام المبلغ منه:
-
-💡 مثال: شارع الملك فهد، الرياض"""
-            
-            self.send_message(message['chat']['id'], address_text)
-            self.user_states[user_id] = f'withdraw_address_{company_id}_{company_name}_{wallet_number}_{amount}'
-            
-        elif state.startswith('withdraw_address_'):
-            # فصل البيانات من الحالة
-            data_part = state.replace('withdraw_address_', '')
-            parts = data_part.split('_')
-            company_id = parts[0] if len(parts) > 0 else ''
-            company_name = parts[1] if len(parts) > 1 else ''
-            wallet_number = parts[2] if len(parts) > 2 else ''
-            amount = parts[3] if len(parts) > 3 else ''
-            withdrawal_address = text.strip()
-            
-            if len(withdrawal_address) < 5:
-                self.send_message(message['chat']['id'], "❌ عنوان قصير جداً. يرجى إدخال عنوان مفصل:")
-                return
-            
-            # طلب كود التأكيد
-            confirm_text = f"""✅ تم تسجيل عنوان السحب: {withdrawal_address}
-
-📋 مراجعة طلب السحب:
-🏢 الشركة: {company_name}
-💳 رقم المحفظة: {wallet_number}
-💰 المبلغ: {amount} ريال
-📍 عنوان السحب: {withdrawal_address}
+{withdrawal_address}
 
 🔐 يرجى إرسال كود التأكيد:"""
             
             self.send_message(message['chat']['id'], confirm_text)
             self.user_states[user_id] = f'withdraw_confirmation_code_{company_id}_{company_name}_{wallet_number}_{amount}_{withdrawal_address}'
             
+
         elif state.startswith('withdraw_confirmation_code_'):
             # فصل البيانات من الحالة
             data_part = state.replace('withdraw_confirmation_code_', '')
@@ -607,7 +599,13 @@ class ComprehensiveLangSenseBot:
             withdrawal_address = parts[4] if len(parts) > 4 else ''
             confirmation_code = parts[5] if len(parts) > 5 else ''
             
-            if text.lower() in ['تأكيد', 'confirm', 'yes']:
+            # احتمالات التأكيد المتعددة
+            confirm_options = ['تأكيد', 'تاكيد', 'تأكييد', 'تاكييد', 'موافق', 'موافقة', 'اوافق', 'أوافق', 'نعم', 'ok', 'yes', 'confirm', 'اكيد', 'أكيد']
+            cancel_options = ['إلغاء', 'الغاء', 'لا', 'no', 'cancel', 'رفض', 'توقف', 'إيقاف']
+            
+            text_clean = text.lower().strip()
+            
+            if any(opt in text_clean for opt in confirm_options):
                 # إنشاء المعاملة
                 user = self.find_user(user_id)
                 trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -637,54 +635,32 @@ class ComprehensiveLangSenseBot:
                 self.send_message(message['chat']['id'], confirmation_msg, self.main_keyboard(user.get('language', 'ar')))
                 del self.user_states[user_id]
                 
-            elif text.lower() in ['إلغاء', 'cancel']:
-                self.send_message(message['chat']['id'], "تم إلغاء العملية", self.main_keyboard())
-                del self.user_states[user_id]
-            else:
-                self.send_message(message['chat']['id'], "يرجى الإجابة بـ 'تأكيد' أو 'إلغاء':")
-            
-        elif state.startswith('withdraw_confirm_'):
-            if text.lower() in ['تأكيد', 'confirm']:
-                parts = state.split('_', 5)
-                company_id = parts[2]
-                company_name = parts[3]
-                wallet_number = parts[4]
-                amount = parts[5]
-                exchange_address = parts[6] if len(parts) > 6 else self.get_exchange_address()
-                
-                # إنشاء المعاملة
-                user = self.find_user(user_id)
-                trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                
-                # حفظ المعاملة
-                with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
-                    writer = csv.writer(f)
-                    writer.writerow([trans_id, user['customer_id'], user['telegram_id'], user['name'], 
-                                   'withdraw', company_name, wallet_number, amount, exchange_address, 'pending', 
-                                   datetime.now().strftime('%Y-%m-%d %H:%M'), '', ''])
-                
-                # رسالة تأكيد للعميل
-                confirmation = f"""✅ تم إرسال طلب السحب بنجاح
+                # إشعار فوري للأدمن
+                for admin_id in self.admin_user_ids:
+                    try:
+                        admin_notification = f"""🔔 طلب سحب جديد
 
 🆔 رقم المعاملة: {trans_id}
 👤 العميل: {user['name']} ({user['customer_id']})
 🏢 الشركة: {company_name}
 💳 رقم المحفظة: {wallet_number}
 💰 المبلغ: {amount} ريال
-📍 عنوان الاستلام: {exchange_address}
+📍 عنوان السحب: {withdrawal_address}
+🔐 كود التأكيد: {confirmation_code}
 📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-⏳ الحالة: في انتظار المراجعة
 
-سيتم إشعارك فور الموافقة على طلبك."""
+لمراجعة الطلب: موافقة {trans_id} أو رفض {trans_id} [سبب]"""
+                        self.send_message(admin_id, admin_notification)
+                    except:
+                        pass
                 
-                self.send_message(message['chat']['id'], confirmation, self.main_keyboard(user.get('language', 'ar')))
-                del self.user_states[user_id]
-                
-            elif text.lower() in ['إلغاء', 'cancel']:
+            elif any(opt in text_clean for opt in cancel_options):
                 self.send_message(message['chat']['id'], "تم إلغاء العملية", self.main_keyboard())
                 del self.user_states[user_id]
             else:
-                self.send_message(message['chat']['id'], "يرجى الإجابة بـ 'تأكيد' أو 'إلغاء':")
+                self.send_message(message['chat']['id'], "يرجى الإجابة بكلمة تأكيد (تأكيد، موافق، نعم) أو إلغاء (إلغاء، لا، رفض):")
+            
+        # (معالج قديم محذوف لأن نظام السحب تم تحديثه)
     
     def show_user_transactions(self, message):
         """عرض معاملات المستخدم"""
@@ -892,15 +868,38 @@ class ComprehensiveLangSenseBot:
             if user:
                 self.send_message(chat_id, "تم العودة للقائمة الرئيسية", self.main_keyboard(user.get('language', 'ar')))
         
-        # أوامر نصية للأدمن (مبسطة)
-        elif text.startswith('موافقة '):
-            trans_id = text.replace('موافقة ', '').strip()
-            self.approve_transaction(message, trans_id)
-        elif text.startswith('رفض '):
-            parts = text.replace('رفض ', '').split(' ', 1)
-            trans_id = parts[0]
-            reason = parts[1] if len(parts) > 1 else 'غير محدد'
-            self.reject_transaction(message, trans_id, reason)
+        # أوامر نصية للأدمن (مبسطة مع احتمالات متعددة)
+        elif any(word in text.lower() for word in ['موافقة', 'موافق', 'اوافق', 'أوافق', 'قبول', 'مقبول', 'تأكيد', 'تاكيد', 'نعم']):
+            # استخراج رقم المعاملة
+            words = text.split()
+            trans_id = None
+            for word in words:
+                if any(word.startswith(prefix) for prefix in ['DEP', 'WTH']):
+                    trans_id = word
+                    break
+            
+            if trans_id:
+                self.approve_transaction(message, trans_id)
+            else:
+                self.send_message(message['chat']['id'], "❌ لم يتم العثور على رقم المعاملة. مثال: موافقة DEP123456", self.admin_keyboard())
+                
+        elif any(word in text.lower() for word in ['رفض', 'رافض', 'لا', 'مرفوض', 'إلغاء', 'الغاء', 'منع']):
+            # استخراج رقم المعاملة والسبب
+            words = text.split()
+            trans_id = None
+            reason_start = -1
+            
+            for i, word in enumerate(words):
+                if any(word.startswith(prefix) for prefix in ['DEP', 'WTH']):
+                    trans_id = word
+                    reason_start = i + 1
+                    break
+            
+            if trans_id:
+                reason = ' '.join(words[reason_start:]) if reason_start != -1 and reason_start < len(words) else 'غير محدد'
+                self.reject_transaction(message, trans_id, reason)
+            else:
+                self.send_message(message['chat']['id'], "❌ لم يتم العثور على رقم المعاملة. مثال: رفض DEP123456 سبب الرفض", self.admin_keyboard())
         elif text.startswith('بحث '):
             query = text.replace('بحث ', '')
             self.search_users_admin(message, query)
@@ -920,6 +919,15 @@ class ComprehensiveLangSenseBot:
         elif text.startswith('عنوان_جديد '):
             new_address = text.replace('عنوان_جديد ', '')
             self.update_address_simple(message, new_address)
+        elif any(word in text.lower() for word in ['عنوان', 'العنوان', 'تحديث_عنوان']):
+            # استخراج العنوان الجديد
+            new_address = text
+            for word in ['عنوان', 'العنوان', 'تحديث_عنوان']:
+                new_address = new_address.replace(word, '').strip()
+            if new_address:
+                self.update_address_simple(message, new_address)
+            else:
+                self.send_message(message['chat']['id'], "يرجى كتابة العنوان الجديد. مثال: عنوان شارع الملك فهد", self.admin_keyboard())
         elif text.startswith('تعديل_اعداد '):
             self.update_setting_simple(message, text)
         else:

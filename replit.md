@@ -50,9 +50,11 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Flexibility**: Dynamic company list for both deposits and withdrawals
 
 ### Notifications
-- **Timing**: Only at completion of operations (approval/rejection)
+- **Timing**: Only at completion of operations (approval/rejection) + instant notifications for new requests
 - **Content**: Essential information only
-- **Direction**: Bidirectional (admin ↔ user) at completion only
+- **Direction**: Bidirectional (admin ↔ user) at completion + instant admin alerts for new transactions
+- **Admin Alerts**: Immediate notifications when users submit deposit/withdrawal requests
+- **Customer Alerts**: Instant notifications upon approval/rejection with full transaction details
 
 ### Admin Interface
 - **Commands**: Simplified text-based commands
