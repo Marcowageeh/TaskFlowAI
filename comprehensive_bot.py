@@ -891,9 +891,9 @@ class ComprehensiveLangSenseBot:
         elif text == '➕ إضافة وسيلة دفع':
             self.start_add_payment_method(message)
         elif text == '✏️ تعديل وسيلة دفع':
-            self.send_message(message['chat']['id'], "ميزة التعديل قيد التطوير", self.admin_keyboard())
+            self.start_edit_payment_method(message)
         elif text == '🗑️ حذف وسيلة دفع':
-            self.send_message(message['chat']['id'], "ميزة الحذف قيد التطوير", self.admin_keyboard())
+            self.start_delete_payment_method(message)
         elif text == '📊 عرض وسائل الدفع':
             self.show_all_payment_methods(message)
         elif text == '🏠 القائمة الرئيسية':
@@ -2850,7 +2850,7 @@ class ComprehensiveLangSenseBot:
 👤 الاسم: {user_found['name']}
 📱 الهاتف: {user_found['phone']}
 🆔 رقم العميل: {user_found['customer_id']}
-📅 تاريخ التسجيل: {user_found['registration_date']}
+📅 تاريخ التسجيل: {user_found.get('registration_date', 'غير محدد')}
 🚫 الحالة: {'محظور' if user_found.get('is_banned') == 'yes' else 'نشط'}
 
 📝 الآن أدخل الرسالة التي تريد إرسالها لهذا العميل:
@@ -2943,6 +2943,119 @@ class ComprehensiveLangSenseBot:
         
         # حذف الحالة
         del self.user_states[user_id]
+    
+    def start_edit_payment_method(self, message):
+        """بدء تعديل وسيلة دفع"""
+        user_id = message['from']['id']
+        
+        # عرض جميع وسائل الدفع للاختيار
+        methods = self.get_all_payment_methods()
+        
+        if not methods:
+            self.send_message(message['chat']['id'], 
+                            "❌ لا توجد وسائل دفع في النظام حالياً", 
+                            self.admin_keyboard())
+            return
+        
+        methods_text = "✏️ اختر وسيلة الدفع للتعديل:\n\n"
+        
+        keyboard_buttons = []
+        for method in methods:
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            method_info = f"🆔 {method['id']} | {method['method_name']} | {company_name}"
+            methods_text += f"{method_info}\n"
+            keyboard_buttons.append([{'text': f"تعديل {method['id']}"}])
+        
+        keyboard_buttons.append([{'text': '🔙 العودة'}])
+        
+        keyboard = {
+            'keyboard': keyboard_buttons,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, keyboard)
+        self.user_states[user_id] = 'selecting_method_to_edit'
+    
+    def start_delete_payment_method(self, message):
+        """بدء حذف وسيلة دفع"""
+        user_id = message['from']['id']
+        
+        # عرض جميع وسائل الدفع للاختيار
+        methods = self.get_all_payment_methods()
+        
+        if not methods:
+            self.send_message(message['chat']['id'], 
+                            "❌ لا توجد وسائل دفع في النظام حالياً", 
+                            self.admin_keyboard())
+            return
+        
+        methods_text = "🗑️ اختر وسيلة الدفع للحذف:\n\n"
+        
+        keyboard_buttons = []
+        for method in methods:
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            method_info = f"🆔 {method['id']} | {method['method_name']} | {company_name}"
+            methods_text += f"{method_info}\n"
+            keyboard_buttons.append([{'text': f"حذف {method['id']}"}])
+        
+        keyboard_buttons.append([{'text': '🔙 العودة'}])
+        
+        keyboard = {
+            'keyboard': keyboard_buttons,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, keyboard)
+        self.user_states[user_id] = 'selecting_method_to_delete'
+    
+    def get_all_payment_methods(self):
+        """الحصول على جميع وسائل الدفع"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get('status') == 'active':
+                        methods.append(row)
+        except:
+            pass
+        return methods
+    
+    def delete_payment_method(self, method_id):
+        """حذف وسيلة دفع"""
+        try:
+            methods = []
+            deleted = False
+            deleted_method = None
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] != str(method_id):
+                        methods.append(row)
+                    else:
+                        deleted = True
+                        deleted_method = row
+            
+            if deleted:
+                # إعادة كتابة الملف بدون الوسيلة المحذوفة
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(methods)
+                
+                return True, deleted_method
+            else:
+                return False, None
+        except Exception as e:
+            return False, None
 
 if __name__ == "__main__":
     # جلب التوكن
