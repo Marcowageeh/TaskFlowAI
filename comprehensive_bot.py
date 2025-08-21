@@ -915,8 +915,10 @@ class ComprehensiveLangSenseBot:
         
         # معالجة القوائم الرئيسية للمستخدمين
         if text in ['💰 طلب إيداع', '💰 Deposit Request']:
+            logger.info(f"معالجة طلب إيداع من {user_id}")
             self.create_deposit_request(message)
         elif text in ['💸 طلب سحب', '💸 Withdrawal Request']:
+            logger.info(f"معالجة طلب سحب من {user_id}")
             self.create_withdrawal_request(message)
         elif text in ['📋 طلباتي', '📋 My Requests']:
             self.show_user_transactions(message)
@@ -1532,7 +1534,11 @@ class ComprehensiveLangSenseBot:
                         self.offset = update['update_id']
                         
                         if 'message' in update:
-                            self.process_message(update['message'])
+                            message = update['message']
+                            # تسجيل الرسائل للتشخيص
+                            if 'text' in message:
+                                logger.info(f"رسالة مستلمة: {message['text']} من {message['from']['id']}")
+                            self.process_message(message)
                         elif 'callback_query' in update:
                             pass  # يمكن إضافة معالجة الأزرار المتقدمة لاحقاً
                             
