@@ -946,24 +946,9 @@ class ComprehensiveLangSenseBot:
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
-        elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System']:
-            # تنظيف الحالة والعودة للقائمة الرئيسية
-            if user_id in self.user_states:
-                del self.user_states[user_id]
-            if hasattr(self, 'temp_company_data') and user_id in self.temp_company_data:
-                del self.temp_company_data[user_id]
-            
-            # إرسال رسالة ترحيب بدلاً من رسالة بسيطة
-            welcome_text = f"""🔄 تم إعادة تعيين النظام بنجاح!
-
-🏠 مرحباً بك في النظام المالي
-
-👤 العميل: {user.get('name', 'غير محدد')}
-🆔 رقم العميل: {user.get('customer_id', 'غير محدد')}
-📞 الهاتف: {user.get('phone', 'غير محدد')}
-
-اختر الخدمة المطلوبة:"""
-            self.send_message(chat_id, welcome_text, self.main_keyboard(user.get('language', 'ar')))
+        elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System', '🆘 إصلاح شامل']:
+            # إجراء إعادة تعيين شاملة وقوية
+            self.super_reset_user_system(user_id, chat_id, user)
         else:
             # معالجة حالات المستخدم الخاصة
             if user_id in self.user_states:
@@ -972,25 +957,133 @@ class ComprehensiveLangSenseBot:
                     self.save_complaint(message, text)
                     return
             
-            # رسالة خطأ مع زر إصلاح
+            # رسالة خطأ محسنة مع زر إصلاح قوي
             error_keyboard = {
                 'keyboard': [
-                    [{'text': '🔄 إعادة تعيين النظام'}],
+                    [{'text': '🔄 إعادة تعيين النظام'}, {'text': '🆘 إصلاح شامل'}],
                     [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
-                    [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}]
+                    [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
+                    [{'text': '🏠 القائمة الرئيسية'}]
                 ],
                 'resize_keyboard': True,
                 'one_time_keyboard': True
             }
             
-            error_msg = f"""❌ اختيار غير صحيح
+            error_msg = f"""❌ أمر غير مفهوم أو خطأ في النظام
 
-🔄 إذا كنت تواجه مشكلة، اضغط على "إعادة تعيين النظام"
+🔧 لحل أي مشكلة، اختر:
+• 🔄 إعادة تعيين النظام - إصلاح بسيط
+• 🆘 إصلاح شامل - حل جميع المشاكل
 
-أو اختر من الخدمات المتاحة أدناه:"""
+أو اختر من الخدمات المتاحة:"""
             
             self.send_message(chat_id, error_msg, error_keyboard)
     
+    def super_reset_user_system(self, user_id, chat_id, user):
+        """إعادة تعيين شاملة وقوية للنظام"""
+        try:
+            logger.info(f"بدء إعادة تعيين شاملة للمستخدم: {user_id}")
+            
+            # 1. تنظيف جميع حالات المستخدم
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+                logger.info(f"تم حذف حالة المستخدم: {user_id}")
+            
+            # 2. تنظيف البيانات المؤقتة
+            temp_data_attrs = [
+                'temp_company_data',
+                'edit_company_data', 
+                'temp_deposit_data',
+                'temp_withdrawal_data',
+                'temp_complaint_data',
+                'temp_payment_data',
+                'admin_temp_data'
+            ]
+            
+            for attr in temp_data_attrs:
+                if hasattr(self, attr) and user_id in getattr(self, attr, {}):
+                    del getattr(self, attr)[user_id]
+                    logger.info(f"تم حذف {attr} للمستخدم: {user_id}")
+            
+            # 3. إعادة تحميل بيانات المستخدم من الملف
+            fresh_user = self.find_user(user_id)
+            if fresh_user:
+                user.update(fresh_user)
+                logger.info(f"تم إعادة تحميل بيانات المستخدم: {user_id}")
+            
+            # 4. التحقق من سلامة الملفات الأساسية وإصلاحها
+            self.verify_and_fix_system_files()
+            
+            # 5. إرسال رسالة نجاح مع معلومات محدثة
+            welcome_text = f"""✅ تم إعادة تعيين النظام بنجاح!
+
+🔧 تم إجراء التالي:
+• تنظيف جميع الحالات المؤقتة
+• إعادة تحميل البيانات الشخصية
+• فحص سلامة النظام
+• إصلاح أي أخطاء محتملة
+
+👤 بياناتك المحدثة:
+🏷️ الاسم: {user.get('name', 'غير محدد')}
+🆔 رقم العميل: {user.get('customer_id', 'غير محدد')}
+📱 الهاتف: {user.get('phone', 'غير محدد')}
+🌐 اللغة: {'العربية' if user.get('language', 'ar') == 'ar' else 'English'}
+
+🏠 النظام جاهز للاستخدام - اختر الخدمة المطلوبة:"""
+            
+            # إرسال الرسالة مع الكيبورد المناسب
+            if self.is_admin(user_id):
+                keyboard = self.admin_keyboard()
+            else:
+                keyboard = self.main_keyboard(user.get('language', 'ar'))
+                
+            self.send_message(chat_id, welcome_text, keyboard)
+            logger.info(f"تمت إعادة التعيين الشاملة بنجاح للمستخدم: {user_id}")
+            
+        except Exception as e:
+            logger.error(f"خطأ في إعادة التعيين الشاملة للمستخدم {user_id}: {e}")
+            
+            # في حالة فشل إعادة التعيين، إرسال رسالة طوارئ
+            emergency_text = """🚨 حدث خطأ في إعادة التعيين
+
+🔧 يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني
+
+⚡ رقم الدعم: +966501234567"""
+            
+            emergency_keyboard = {
+                'keyboard': [
+                    [{'text': '🆘 إصلاح شامل'}, {'text': '🔄 إعادة تعيين النظام'}],
+                    [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}]
+                ],
+                'resize_keyboard': True
+            }
+            
+            self.send_message(chat_id, emergency_text, emergency_keyboard)
+    
+    def verify_and_fix_system_files(self):
+        """فحص وإصلاح ملفات النظام الأساسية"""
+        try:
+            # التحقق من وجود الملفات الأساسية وإنشاؤها إذا لزم الأمر
+            required_files = [
+                'users.csv',
+                'transactions.csv', 
+                'companies.csv',
+                'complaints.csv',
+                'payment_methods.csv',
+                'exchange_addresses.csv'
+            ]
+            
+            for file_name in required_files:
+                if not os.path.exists(file_name):
+                    logger.warning(f"ملف مفقود يتم إنشاؤه: {file_name}")
+                    self.init_files()  # إعادة إنشاء جميع الملفات
+                    break
+                    
+            logger.info("تم فحص سلامة ملفات النظام بنجاح")
+            
+        except Exception as e:
+            logger.error(f"خطأ في فحص ملفات النظام: {e}")
+
     def handle_admin_actions(self, message):
         """معالجة إجراءات الأدمن"""
         text = message['text']
