@@ -212,10 +212,136 @@ class LangSenseBot:
             text = f"✅ تم التسجيل بنجاح!\n📱 الهاتف: {phone}\n🆔 رقم العميل: {customer_id}"
             self.send_message(message['chat']['id'], text, self.main_keyboard())
     
+    def is_admin(self, telegram_id):
+        """فحص إذا كان المستخدم أدمن"""
+        admin_ids = os.getenv('ADMIN_USER_IDS', '').split(',')
+        return str(telegram_id) in admin_ids
+    
+    def handle_admin_commands(self, message):
+        """أوامر الأدمن"""
+        if not self.is_admin(message['from']['id']):
+            self.send_message(message['chat']['id'], "🚫 غير مسموح! هذا الأمر للأدمن فقط")
+            return
+        
+        # إحصائيات
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                users_count = len(f.readlines()) - 1
+        except:
+            users_count = 0
+            
+        try:
+            with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                trans_count = len(f.readlines()) - 1
+        except:
+            trans_count = 0
+        
+        try:
+            with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
+                comp_count = len(f.readlines()) - 1
+        except:
+            comp_count = 0
+        
+        admin_text = f"""🛠️ لوحة الإدارة
+
+📊 الإحصائيات:
+👥 المستخدمين: {users_count}
+💰 المعاملات: {trans_count}  
+📨 الشكاوى: {comp_count}
+
+📁 الملفات:
+• users.csv
+• transactions.csv  
+• complaints.csv
+
+💡 الأوامر:
+/admin - لوحة الإدارة
+/users - قائمة المستخدمين
+/broadcast رسالة - إرسال جماعي"""
+        
+        self.send_message(message['chat']['id'], admin_text)
+    
+    def handle_broadcast(self, message):
+        """إرسال رسالة جماعية"""
+        if not self.is_admin(message['from']['id']):
+            return
+        
+        # استخراج الرسالة من النص
+        parts = message['text'].split(' ', 1)
+        if len(parts) < 2:
+            self.send_message(message['chat']['id'], "استخدم: /broadcast رسالتك")
+            return
+        
+        broadcast_msg = parts[1]
+        
+        # جلب جميع المستخدمين
+        users = []
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                users = list(reader)
+        except:
+            pass
+        
+        if not users:
+            self.send_message(message['chat']['id'], "لا يوجد مستخدمين لإرسال الرسالة إليهم")
+            return
+        
+        # إرسال الرسالة لجميع المستخدمين
+        success_count = 0
+        for user in users:
+            try:
+                result = self.send_message(user['telegram_id'], f"📢 رسالة من الإدارة:\n\n{broadcast_msg}")
+                if result and result.get('ok'):
+                    success_count += 1
+                time.sleep(0.1)  # تجنب السبام
+            except:
+                pass
+        
+        self.send_message(message['chat']['id'], f"✅ تم إرسال الرسالة إلى {success_count} من {len(users)} مستخدم")
+    
+    def handle_users_list(self, message):
+        """عرض قائمة المستخدمين"""
+        if not self.is_admin(message['from']['id']):
+            return
+        
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                users = list(reader)
+        except:
+            users = []
+        
+        if not users:
+            self.send_message(message['chat']['id'], "لا يوجد مستخدمين مسجلين")
+            return
+        
+        users_text = "👥 قائمة المستخدمين:\n\n"
+        for user in users[-10:]:  # آخر 10 مستخدمين
+            users_text += f"• {user['name']} ({user['customer_id']})\n  📱 {user['phone']}\n  📅 {user['date']}\n\n"
+        
+        self.send_message(message['chat']['id'], users_text)
+    
     def handle_text(self, message):
         """التعامل مع الرسائل النصية"""
         text = message['text']
         chat_id = message['chat']['id']
+        
+        # أوامر خاصة
+        if text == '/admin':
+            self.handle_admin_commands(message)
+            return
+        elif text.startswith('/broadcast '):
+            self.handle_broadcast(message)
+            return
+        elif text == '/users':
+            self.handle_users_list(message)
+            return
+        elif text == '/myid':
+            # عرض ID المستخدم
+            self.send_message(chat_id, f"🆔 Telegram ID الخاص بك:\n`{message['from']['id']}`\n\nانسخ هذا الرقم وأرسله للمطور لإضافتك كأدمن")
+            return
+        
         user = self.find_user(message['from']['id'])
         
         if not user:
