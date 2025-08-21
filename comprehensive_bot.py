@@ -543,8 +543,8 @@ class ComprehensiveLangSenseBot:
             self.user_states[user_id] = f'deposit_wallet_{company_id}_{company_name}_{selected_method["id"]}'
             
         elif state.startswith('deposit_wallet_'):
-            parts = state.split('_', 3)
-            company_id = parts[2]
+            parts = state.split('_')
+            company_id = parts[2] if len(parts) > 2 else ''
             company_name = parts[3] if len(parts) > 3 else ''
             method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = text.strip()
@@ -566,9 +566,9 @@ class ComprehensiveLangSenseBot:
             self.user_states[user_id] = f'deposit_amount_{company_id}_{company_name}_{method_id}_{wallet_number}'
             
         elif state.startswith('deposit_amount_'):
-            parts = state.split('_', 4)
-            company_id = parts[2]
-            company_name = parts[3]
+            parts = state.split('_')
+            company_id = parts[2] if len(parts) > 2 else ''
+            company_name = parts[3] if len(parts) > 3 else ''
             method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = parts[5] if len(parts) > 5 else ''
             
@@ -651,11 +651,63 @@ class ComprehensiveLangSenseBot:
                 return
             
             # عرض وسائل الدفع للشركة المختارة
-            self.show_payment_method_selection(message, selected_company['id'], 'withdraw')
+            payment_methods = self.get_payment_methods_for_company(selected_company['id'])
+            if not payment_methods:
+                self.send_message(message['chat']['id'], f"❌ لا توجد وسائل دفع متاحة لشركة {selected_company['name']}\n\nتواصل مع الإدارة لإضافة وسائل الدفع")
+                return
+            
+            # إنشاء قائمة وسائل الدفع
+            methods_text = f"💳 وسائل الدفع المتاحة لشركة {selected_company['name']}:\n\n"
+            methods_keyboard = []
+            
+            for method in payment_methods:
+                method_type_display = {'wallet': 'محفظة إلكترونية', 'bank': 'حساب بنكي', 'card': 'بطاقة'}.get(method['method_type'], method['method_type'])
+                methods_text += f"💳 {method['method_name']}\n📋 {method_type_display}\n💼 {method['account_data']}\n"
+                if method['additional_info']:
+                    methods_text += f"💡 {method['additional_info']}\n"
+                methods_text += "\n"
+                methods_keyboard.append([{'text': f"💳 {method['method_name']}"}])
+            
+            methods_keyboard.append([{'text': '🔙 العودة لاختيار الشركة'}])
+            methods_kb = {'keyboard': methods_keyboard, 'resize_keyboard': True, 'one_time_keyboard': True}
+            
+            self.send_message(message['chat']['id'], methods_text, methods_kb)
+            self.user_states[user_id] = f'selecting_withdraw_payment_method_{selected_company["id"]}_{selected_company["name"]}'
+        
+        elif state.startswith('selecting_withdraw_payment_method_'):
+            # معالجة اختيار وسيلة الدفع للسحب
+            parts = state.split('_', 4)
+            company_id = parts[3]
+            company_name = parts[4] if len(parts) > 4 else ''
+            
+            selected_method_name = text.replace('💳 ', '')
+            
+            # البحث عن وسيلة الدفع المختارة
+            payment_methods = self.get_payment_methods_for_company(company_id)
+            selected_method = None
+            for method in payment_methods:
+                if method['method_name'] == selected_method_name:
+                    selected_method = method
+                    break
+            
+            if not selected_method:
+                self.send_message(message['chat']['id'], "❌ وسيلة دفع غير صحيحة. اختر من القائمة:")
+                return
+            
+            # طلب رقم المحفظة/الحساب
+            wallet_text = f"""✅ تم اختيار: {selected_method['method_name']}
+💳 النوع: {selected_method['method_type']}
+💼 البيانات: {selected_method['account_data']}
+
+📝 الآن أدخل رقم محفظتك/حسابك للسحب:
+💡 مثال: 0512345678 أو SA03800000000001234567890"""
+            
+            self.send_message(message['chat']['id'], wallet_text)
+            self.user_states[user_id] = f'withdraw_wallet_{company_id}_{company_name}_{selected_method["id"]}'
             
         elif state.startswith('withdraw_wallet_'):
-            parts = state.split('_', 3)
-            company_id = parts[2]
+            parts = state.split('_')
+            company_id = parts[2] if len(parts) > 2 else ''
             company_name = parts[3] if len(parts) > 3 else ''
             method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = text.strip()
@@ -679,9 +731,9 @@ class ComprehensiveLangSenseBot:
             self.user_states[user_id] = f'withdraw_amount_{company_id}_{company_name}_{method_id}_{wallet_number}'
             
         elif state.startswith('withdraw_amount_'):
-            parts = state.split('_', 4)
-            company_id = parts[2]
-            company_name = parts[3]
+            parts = state.split('_')
+            company_id = parts[2] if len(parts) > 2 else ''
+            company_name = parts[3] if len(parts) > 3 else ''
             method_id = parts[4] if len(parts) > 4 else ''
             wallet_number = parts[5] if len(parts) > 5 else ''
             
