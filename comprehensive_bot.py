@@ -203,7 +203,8 @@ class ComprehensiveLangSenseBot:
                     [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
                     [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
                     [{'text': '📨 شكوى'}, {'text': '🆘 دعم'}],
-                    [{'text': '🇺🇸 English'}, {'text': '/admin'}]
+                    [{'text': '🔄 إعادة تعيين'}, {'text': '🇺🇸 English'}],
+                    [{'text': '/admin'}]
                 ],
                 'resize_keyboard': True
             }
@@ -213,7 +214,8 @@ class ComprehensiveLangSenseBot:
                     [{'text': '💰 Deposit Request'}, {'text': '💸 Withdrawal Request'}],
                     [{'text': '📋 My Requests'}, {'text': '👤 Profile'}],
                     [{'text': '📨 Complaint'}, {'text': '🆘 Support'}],
-                    [{'text': '🇸🇦 العربية'}, {'text': '/admin'}]
+                    [{'text': '🔄 Reset System'}, {'text': '🇸🇦 العربية'}],
+                    [{'text': '/admin'}]
                 ],
                 'resize_keyboard': True
             }
@@ -937,12 +939,17 @@ class ComprehensiveLangSenseBot:
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
-        elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية']:
+        elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System']:
             # تنظيف الحالة والعودة للقائمة الرئيسية
             if user_id in self.user_states:
                 del self.user_states[user_id]
+            if user_id in self.temp_company_data:
+                del self.temp_company_data[user_id]
+            
             # إرسال رسالة ترحيب بدلاً من رسالة بسيطة
-            welcome_text = f"""🏠 مرحباً بك في النظام المالي
+            welcome_text = f"""🔄 تم إعادة تعيين النظام بنجاح!
+
+🏠 مرحباً بك في النظام المالي
 
 👤 العميل: {user.get('name', 'غير محدد')}
 🆔 رقم العميل: {user.get('customer_id', 'غير محدد')}
@@ -958,7 +965,24 @@ class ComprehensiveLangSenseBot:
                     self.save_complaint(message, text)
                     return
             
-            self.send_message(chat_id, "يرجى اختيار من القائمة:", self.main_keyboard(user.get('language', 'ar')))
+            # رسالة خطأ مع زر إصلاح
+            error_keyboard = {
+                'keyboard': [
+                    [{'text': '🔄 إعادة تعيين النظام'}],
+                    [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
+                    [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            error_msg = f"""❌ اختيار غير صحيح
+
+🔄 إذا كنت تواجه مشكلة، اضغط على "إعادة تعيين النظام"
+
+أو اختر من الخدمات المتاحة أدناه:"""
+            
+            self.send_message(chat_id, error_msg, error_keyboard)
     
     def handle_admin_actions(self, message):
         """معالجة إجراءات الأدمن"""
