@@ -468,6 +468,12 @@ class AdvancedLangSenseBot:
             elif text == '✅ إلغاء حظر':
                 self.prompt_unban_user(message)
                 return
+            elif text == '📝 إضافة وسيلة دفع':
+                self.prompt_add_payment_method(message)
+                return
+            elif text == '⚙️ تعديل وسائل الدفع':
+                self.show_edit_payment_methods(message)
+                return
             elif text == '🏠 القائمة الرئيسية':
                 user = self.find_user(user_id)
                 lang = user.get('language', 'ar') if user else 'ar'
@@ -496,6 +502,21 @@ class AdvancedLangSenseBot:
             elif state == 'admin_unbanning':
                 self.process_admin_unban(message)
                 return
+            elif state == 'selecting_withdraw_method':
+                self.process_withdrawal_method_selection(message)
+                return
+            elif state.startswith('withdraw_wallet_'):
+                self.process_withdrawal_wallet(message)
+                return
+            elif state.startswith('withdraw_amount_'):
+                self.process_withdrawal_amount(message)
+                return
+            elif state == 'admin_adding_payment':
+                self.process_admin_add_payment(message)
+                return
+            elif state == 'admin_editing_payment':
+                self.process_admin_edit_payment(message)
+                return
         
         user = self.find_user(user_id)
         if not user:
@@ -507,6 +528,8 @@ class AdvancedLangSenseBot:
         # معالجة القوائم
         if text in ['💰 طلب إيداع', '💰 Deposit Request']:
             self.create_deposit_request(message)
+        elif text in ['💸 طلب سحب', '💸 Withdrawal Request']:
+            self.create_withdrawal_request(message)
         elif text in ['📋 طلباتي', '📋 My Requests']:
             self.show_user_transactions(message)
         elif text == '/admin' and self.is_admin(user_id):
@@ -641,7 +664,7 @@ class AdvancedLangSenseBot:
                 [{'text': '💳 وسائل الدفع'}, {'text': '📊 الإحصائيات'}],
                 [{'text': '📢 إرسال جماعي'}, {'text': '🔧 إعدادات'}],
                 [{'text': '🚫 حظر مستخدم'}, {'text': '✅ إلغاء حظر'}],
-                [{'text': '📝 إضافة وسيلة دفع'}, {'text': '📄 تقارير'}],
+                [{'text': '📝 إضافة وسيلة دفع'}, {'text': '⚙️ تعديل وسائل الدفع'}],
                 [{'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True
@@ -843,6 +866,206 @@ class AdvancedLangSenseBot:
         response = "✅ إلغاء حظر مستخدم\n\nأرسل رقم العميل:\nمثال: C000001"
         self.send_message(message['chat']['id'], response)
         self.user_states[message['from']['id']] = 'admin_unbanning'
+    
+    def create_withdrawal_request(self, message):
+        """إنشاء طلب سحب متقدم مع اختيار الشركة"""
+        user = self.find_user(message['from']['id'])
+        if not user:
+            return
+        
+        # عرض شركات السحب المتاحة
+        withdraw_methods = self.get_payment_methods('withdraw')
+        if not withdraw_methods:
+            self.send_message(message['chat']['id'], "❌ لا توجد شركات سحب متاحة حالياً")
+            return
+        
+        methods_text = "💸 طلب سحب جديد\n\nالشركات المتاحة للسحب:\n\n"
+        keyboard_buttons = []
+        
+        for method in withdraw_methods:
+            methods_text += f"💳 {method['name']}\n📝 {method['details']}\n\n"
+            keyboard_buttons.append([{'text': f"💸 {method['name']}"}])
+        
+        keyboard_buttons.append([{'text': '🔙 العودة للقائمة الرئيسية'}])
+        
+        methods_text += "اختر الشركة المناسبة للسحب:"
+        
+        self.send_message(message['chat']['id'], methods_text, {
+            'keyboard': keyboard_buttons,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        })
+        
+        self.user_states[message['from']['id']] = 'selecting_withdraw_method'
+    
+    def process_withdrawal_method_selection(self, message):
+        """معالجة اختيار شركة السحب"""
+        user = self.find_user(message['from']['id'])
+        selected_method = message['text'].replace('💸 ', '')
+        
+        # البحث عن الشركة المختارة
+        withdraw_methods = self.get_payment_methods('withdraw')
+        selected_method_info = None
+        for method in withdraw_methods:
+            if method['name'] == selected_method:
+                selected_method_info = method
+                break
+        
+        if not selected_method_info:
+            self.send_message(message['chat']['id'], "❌ شركة السحب غير صحيحة")
+            return
+        
+        response = f"""💸 تم اختيار شركة السحب: {selected_method}
+
+📝 تفاصيل الشركة:
+{selected_method_info['details']}
+
+💡 الآن يرجى إدخال رقم محفظتك أو حسابك في {selected_method}:
+
+مثال: 0501234567"""
+        
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = f'withdraw_wallet_{selected_method}'
+    
+    def process_withdrawal_wallet(self, message):
+        """معالجة رقم المحفظة"""
+        user = self.find_user(message['from']['id'])
+        wallet_number = message['text'].strip()
+        user_id = message['from']['id']
+        state = self.user_states.get(user_id, '')
+        
+        if not state.startswith('withdraw_wallet_'):
+            return
+        
+        selected_method = state.replace('withdraw_wallet_', '')
+        
+        response = f"""✅ تم استلام رقم المحفظة: {wallet_number}
+🏦 الشركة: {selected_method}
+
+💰 الآن يرجى إدخال المبلغ المطلوب سحبه:
+
+مثال: 500"""
+        
+        self.send_message(message['chat']['id'], response)
+        self.user_states[user_id] = f'withdraw_amount_{selected_method}_{wallet_number}'
+    
+    def process_withdrawal_amount(self, message):
+        """معالجة مبلغ السحب وإنشاء الطلب"""
+        if not message['text'].isdigit():
+            self.send_message(message['chat']['id'], "❌ يرجى إدخال مبلغ صحيح (أرقام فقط)")
+            return
+        
+        amount = message['text']
+        user_id = message['from']['id']
+        user = self.find_user(user_id)
+        state = self.user_states.get(user_id, '')
+        
+        if not state.startswith('withdraw_amount_'):
+            return
+        
+        parts = state.replace('withdraw_amount_', '').split('_', 1)
+        selected_method = parts[0]
+        wallet_number = parts[1]
+        
+        # إنشاء المعاملة
+        trans_id = f"WTH{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        
+        # حفظ المعاملة
+        with open('transactions.csv', 'a', newline='', encoding='utf-8-sig') as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                trans_id, user['customer_id'], user['telegram_id'], user['name'], 
+                'withdrawal', amount, 'pending', datetime.now().strftime('%Y-%m-%d %H:%M'), 
+                '', selected_method, wallet_number, ''
+            ])
+        
+        # رسالة التأكيد للعميل
+        confirmation = f"""✅ تم إنشاء طلب السحب بنجاح!
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+🏦 الشركة: {selected_method}
+💳 المحفظة: {wallet_number}
+💰 المبلغ: {amount} ريال
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+⏳ سيتم مراجعة طلبك خلال 24 ساعة
+🔔 سيتم إشعارك فور تغيير حالة الطلب"""
+        
+        # إشعار شامل فوري للأدمن
+        admin_notification = f"""💸 طلب سحب جديد - مكتمل!
+
+🆔 رقم المعاملة: {trans_id}
+👤 العميل: {user['name']} ({user['customer_id']})
+📱 تيليجرام: @{message['from'].get('username', 'غير متوفر')} ({user['telegram_id']})
+📞 الهاتف: {user['phone']}
+🏦 شركة السحب: {selected_method}
+💳 رقم المحفظة: {wallet_number}
+💰 المبلغ المطلوب: {amount} ريال
+📅 الوقت: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+🎯 الطلب جاهز للمعالجة:
+✅ استخدم: /approve {trans_id} للموافقة
+❌ استخدم: /reject {trans_id} السبب للرفض
+📋 استخدم: /pending للمراجعة"""
+        
+        self.notify_admins(admin_notification)
+        
+        self.send_message(message['chat']['id'], confirmation, self.main_keyboard(user.get('language', 'ar')))
+        
+        # حذف حالة المستخدم
+        if user_id in self.user_states:
+            del self.user_states[user_id]
+    
+    def prompt_add_payment_method(self, message):
+        """طلب إضافة وسيلة دفع جديدة"""
+        response = """📝 إضافة وسيلة دفع جديدة
+
+أرسل التفاصيل بالتنسيق التالي:
+deposit اسم_البنك تفاصيل_الحساب
+أو
+withdraw اسم_الشركة تفاصيل_المحفظة
+
+أمثلة:
+deposit بنك الأهلي رقم الحساب: 1234567890, اسم المستفيد: شركة النظام
+
+withdraw فودافون كاش رقم المحفظة: 01012345678"""
+        
+        self.send_message(message['chat']['id'], response)
+        self.user_states[message['from']['id']] = 'admin_adding_payment'
+    
+    def show_edit_payment_methods(self, message):
+        """عرض وسائل الدفع للتعديل"""
+        all_methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                all_methods = list(csv.DictReader(f))
+        except:
+            pass
+        
+        if not all_methods:
+            self.send_message(message['chat']['id'], "❌ لا توجد وسائل دفع", self.admin_keyboard())
+            return
+        
+        response = "⚙️ تعديل وسائل الدفع\n\n"
+        
+        deposit_methods = [m for m in all_methods if m['type'] == 'deposit']
+        withdraw_methods = [m for m in all_methods if m['type'] == 'withdraw']
+        
+        response += "💰 وسائل الإيداع:\n"
+        for i, method in enumerate(deposit_methods, 1):
+            status = "🟢" if method['is_active'] == 'active' else "🔴"
+            response += f"{status} {i}. {method['name']}\n"
+        
+        response += f"\n💸 وسائل السحب:\n"
+        for i, method in enumerate(withdraw_methods, 1):
+            status = "🟢" if method['is_active'] == 'active' else "🔴"
+            response += f"{status} {i}. {method['name']}\n"
+        
+        response += f"\n💡 لحذف وسيلة دفع: delete رقم_الوسيلة\nمثال: delete 1"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        self.user_states[message['from']['id']] = 'admin_editing_payment'
     
     def handle_start(self, message):
         """بدء التسجيل"""
@@ -1076,6 +1299,79 @@ class AdvancedLangSenseBot:
         except:
             pass
         return success
+    
+    def process_admin_add_payment(self, message):
+        """معالجة إضافة وسيلة دفع"""
+        try:
+            parts = message['text'].split(' ', 2)
+            if len(parts) < 3:
+                self.send_message(message['chat']['id'], "❌ تنسيق خاطئ. استخدم:\ndeposit اسم_البنك التفاصيل", self.admin_keyboard())
+                del self.user_states[message['from']['id']]
+                return
+            
+            method_type = parts[0]
+            method_name = parts[1]
+            method_details = parts[2]
+            
+            if method_type not in ['deposit', 'withdraw']:
+                self.send_message(message['chat']['id'], "❌ النوع يجب أن يكون deposit أو withdraw", self.admin_keyboard())
+                del self.user_states[message['from']['id']]
+                return
+            
+            # إنشاء معرف جديد
+            new_id = str(int(datetime.now().timestamp()))
+            
+            with open('payment_methods.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                writer.writerow([new_id, method_name, method_type, method_details, 'active', datetime.now().strftime('%Y-%m-%d')])
+            
+            response = f"✅ تم إضافة وسيلة الدفع بنجاح!\n🆔 المعرف: {new_id}\n📝 {method_name} ({method_type})"
+            
+            self.send_message(message['chat']['id'], response, self.admin_keyboard())
+            del self.user_states[message['from']['id']]
+            
+        except Exception as e:
+            self.send_message(message['chat']['id'], f"❌ حدث خطأ: {str(e)}", self.admin_keyboard())
+            del self.user_states[message['from']['id']]
+    
+    def process_admin_edit_payment(self, message):
+        """معالجة تعديل/حذف وسائل الدفع"""
+        text = message['text'].strip().lower()
+        
+        if text.startswith('delete '):
+            try:
+                method_id = text.split(' ')[1]
+                
+                # قراءة جميع الوسائل
+                methods = []
+                found = False
+                with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['id'] != method_id:
+                            methods.append(row)
+                        else:
+                            found = True
+                
+                if found:
+                    # إعادة كتابة الملف بدون الوسيلة المحذوفة
+                    with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                        fieldnames = ['id', 'name', 'type', 'details', 'is_active', 'created_date']
+                        writer = csv.DictWriter(f, fieldnames=fieldnames)
+                        writer.writeheader()
+                        writer.writerows(methods)
+                    
+                    response = f"✅ تم حذف وسيلة الدفع رقم {method_id}"
+                else:
+                    response = f"❌ لم يتم العثور على وسيلة دفع برقم {method_id}"
+                    
+            except:
+                response = "❌ خطأ في الحذف. تأكد من الرقم"
+        else:
+            response = "❌ أمر غير مفهوم. استخدم: delete رقم_الوسيلة"
+        
+        self.send_message(message['chat']['id'], response, self.admin_keyboard())
+        del self.user_states[message['from']['id']]
     
     def run(self):
         """تشغيل البوت"""
