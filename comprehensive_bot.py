@@ -3994,6 +3994,31 @@ class ComprehensiveLangSenseBot:
             logger.error(f"فشل في إرسال الملف: {e}")
             return None
     
+    def get_chat_id_by_username(self, username):
+        """الحصول على معرف المحادثة من اسم المستخدم"""
+        try:
+            # إزالة علامة @ إذا كانت موجودة
+            if username.startswith('@'):
+                username = username[1:]
+            
+            # استخدام getChat API للحصول على معلومات المحادثة
+            url = f"{self.api_url}/getChat"
+            data = {'chat_id': f'@{username}'}
+            
+            req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'))
+            req.add_header('Content-Type', 'application/json')
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                
+                if result.get('ok') and 'result' in result:
+                    return result['result']['id']
+                    
+        except Exception as e:
+            logger.error(f"فشل في الحصول على معرف {username}: {e}")
+            
+        return None
+
     def send_backup_to_admins(self):
         """إرسال النسخة الاحتياطية لجميع الإدارة"""
         logger.info("بدء إرسال النسخة الاحتياطية للإدارة...")
@@ -4022,16 +4047,33 @@ class ComprehensiveLangSenseBot:
 
 🔒 البيانات آمنة ومشفرة"""
 
-            # إرسال للإدارة
+            # إرسال لحساب @Aba10o0 المحدد (إذا تم تفعيله)
+            backup_recipients = [
+                # إضافة المعرف الرقمي هنا عندما يصبح متاحاً
+                # مثال: 123456789  # @Aba10o0
+            ]
+            
+            for recipient_id in backup_recipients:
+                try:
+                    result = self.send_document(recipient_id, backup_file, caption)
+                    if result and result.get('ok'):
+                        logger.info(f"تم إرسال النسخة الاحتياطية بنجاح للمستلم: {recipient_id}")
+                    else:
+                        logger.error(f"فشل في إرسال النسخة للمستلم: {recipient_id}")
+                except Exception as e:
+                    logger.error(f"خطأ في إرسال النسخة للمستلم {recipient_id}: {e}")
+                
+            # إرسال للإدارة العادية أيضاً كنسخة احتياطية
             sent_count = 0
             for admin_id in self.admin_ids:
                 try:
-                    result = self.send_document(admin_id, backup_file, caption)
-                    if result and result.get('ok'):
-                        sent_count += 1
-                        logger.info(f"تم إرسال النسخة الاحتياطية للإدارة: {admin_id}")
-                    else:
-                        logger.error(f"فشل في إرسال النسخة للإدارة: {admin_id}")
+                    if str(admin_id).isdigit():  # إرسال فقط للمعرفات الرقمية
+                        result = self.send_document(admin_id, backup_file, caption)
+                        if result and result.get('ok'):
+                            sent_count += 1
+                            logger.info(f"تم إرسال النسخة الاحتياطية للإدارة: {admin_id}")
+                        else:
+                            logger.error(f"فشل في إرسال النسخة للإدارة: {admin_id}")
                 except Exception as e:
                     logger.error(f"خطأ في إرسال النسخة للإدارة {admin_id}: {e}")
                     
@@ -4042,7 +4084,7 @@ class ComprehensiveLangSenseBot:
             except:
                 pass
                 
-            logger.info(f"تم إرسال النسخة الاحتياطية لـ {sent_count} من أصل {len(self.admin_ids)} إدارة")
+            logger.info(f"تم إرسال النسخة الاحتياطية لـ @{target_username} + {sent_count} إدارة إضافية")
             
         except Exception as e:
             logger.error(f"خطأ في إرسال النسخة الاحتياطية: {e}")
