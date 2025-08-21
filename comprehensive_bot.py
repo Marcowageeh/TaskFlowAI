@@ -19,6 +19,7 @@ class ComprehensiveLangSenseBot:
         self.api_url = f"https://api.telegram.org/bot{token}"
         self.offset = 0
         self.user_states = {}
+        self.temp_company_data = {}  # إضافة المتغير المفقود
         self.init_files()
         self.admin_ids = self.get_admin_ids()
         
@@ -943,7 +944,7 @@ class ComprehensiveLangSenseBot:
             # تنظيف الحالة والعودة للقائمة الرئيسية
             if user_id in self.user_states:
                 del self.user_states[user_id]
-            if user_id in self.temp_company_data:
+            if hasattr(self, 'temp_company_data') and user_id in self.temp_company_data:
                 del self.temp_company_data[user_id]
             
             # إرسال رسالة ترحيب بدلاً من رسالة بسيطة
@@ -1562,7 +1563,24 @@ class ComprehensiveLangSenseBot:
                             # تسجيل الرسائل للتشخيص
                             if 'text' in message:
                                 logger.info(f"رسالة مستلمة: {message['text']} من {message['from']['id']}")
-                            self.process_message(message)
+                            try:
+                                self.process_message(message)
+                            except Exception as msg_error:
+                                logger.error(f"خطأ في معالجة الرسالة: {msg_error}")
+                                # إرسال رسالة خطأ للمستخدم
+                                try:
+                                    error_keyboard = {
+                                        'keyboard': [
+                                            [{'text': '🔄 إعادة تعيين النظام'}],
+                                            [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}]
+                                        ],
+                                        'resize_keyboard': True
+                                    }
+                                    self.send_message(message['chat']['id'], 
+                                                    "❌ حدث خطأ. اضغط على 'إعادة تعيين النظام' للإصلاح", 
+                                                    error_keyboard)
+                                except:
+                                    pass
                         elif 'callback_query' in update:
                             pass  # يمكن إضافة معالجة الأزرار المتقدمة لاحقاً
                             
@@ -1570,7 +1588,9 @@ class ComprehensiveLangSenseBot:
                 logger.info("تم إيقاف البوت")
                 break
             except Exception as e:
-                logger.error(f"خطأ: {e}")
+                logger.error(f"خطأ عام: {e}")
+                import time
+                time.sleep(1)  # انتظار قصير قبل المحاولة مرة أخرى
                 continue
 
     def handle_complaint_start(self, message):
