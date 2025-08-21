@@ -237,12 +237,17 @@ class ComprehensiveLangSenseBot:
         }
     
     def companies_keyboard(self, service_type):
-        """لوحة اختيار الشركات"""
+        """لوحة اختيار الشركات مع تحديث فوري"""
         companies = self.get_companies(service_type)
         keyboard = []
+        
+        # إضافة أزرار الشركات
         for company in companies:
             keyboard.append([{'text': f"🏢 {company['name']}"}])
+        
+        # إضافة زر العودة
         keyboard.append([{'text': '🔙 العودة للقائمة الرئيسية'}])
+        
         return {'keyboard': keyboard, 'resize_keyboard': True, 'one_time_keyboard': True}
     
     def handle_start(self, message):
@@ -365,15 +370,18 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للإيداع
+        # عرض الشركات المتاحة للإيداع مع تحديث فوري
         deposit_companies = self.get_companies('deposit')
         if not deposit_companies:
-            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للإيداع حالياً")
+            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للإيداع حالياً\n\nتواصل مع الإدارة لإضافة شركات الإيداع")
             return
         
         companies_text = "💰 طلب إيداع جديد\n\n🏢 اختر الشركة للإيداع:\n\n"
         for company in deposit_companies:
-            companies_text += f"🔹 {company['name']} - {company['details']}\n"
+            type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(company['type'], company['type'])
+            companies_text += f"🔹 {company['name']} ({type_display}) - {company['details']}\n"
+        
+        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(deposit_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('deposit'))
         self.user_states[message['from']['id']] = 'selecting_deposit_company'
@@ -384,15 +392,18 @@ class ComprehensiveLangSenseBot:
         if not user:
             return
         
-        # عرض الشركات المتاحة للسحب
+        # عرض الشركات المتاحة للسحب مع تحديث فوري
         withdraw_companies = self.get_companies('withdraw')
         if not withdraw_companies:
-            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للسحب حالياً")
+            self.send_message(message['chat']['id'], "❌ لا توجد شركات متاحة للسحب حالياً\n\nتواصل مع الإدارة لإضافة شركات السحب")
             return
         
         companies_text = "💸 طلب سحب جديد\n\n🏢 اختر الشركة للسحب:\n\n"
         for company in withdraw_companies:
-            companies_text += f"🔹 {company['name']} - {company['details']}\n"
+            type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(company['type'], company['type'])
+            companies_text += f"🔹 {company['name']} ({type_display}) - {company['details']}\n"
+        
+        companies_text += f"\n📊 إجمالي الشركات المتاحة: {len(withdraw_companies)}"
         
         self.send_message(message['chat']['id'], companies_text, self.companies_keyboard('withdraw'))
         self.user_states[message['from']['id']] = 'selecting_withdraw_company'
@@ -1314,10 +1325,10 @@ class ComprehensiveLangSenseBot:
     
     def add_company_simple_with_display(self, message, text):
         """إضافة شركة مع عرض القائمة المحدثة"""
-        self.add_company_simple(message, text)
-        # عرض قائمة الشركات المحدثة بعد ثانيتين
-        import threading
-        threading.Timer(2.0, lambda: self.show_companies_management_enhanced(message)).start()
+        result = self.add_company_simple(message, text)
+        if result:
+            # عرض قائمة الشركات المحدثة فوراً
+            self.show_companies_management_enhanced(message)
     
     def add_company_simple(self, message, text):
         """إضافة شركة بصيغة مبسطة"""
@@ -1423,9 +1434,11 @@ class ComprehensiveLangSenseBot:
                 pass
             
             self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            return True
             
         except Exception as e:
             self.send_message(message['chat']['id'], f"❌ فشل في إضافة الشركة: {str(e)}", self.admin_keyboard())
+            return False
     
     def update_address_simple(self, message, new_address):
         """تحديث عنوان الصرافة"""
@@ -1911,27 +1924,30 @@ class ComprehensiveLangSenseBot:
             del self.edit_company_data[user_id]
     
     def show_companies_management_enhanced(self, message):
-        """عرض إدارة الشركات المحسن"""
+        """عرض إدارة الشركات المحسن مع تحديث فوري"""
         companies_text = "🏢 إدارة الشركات المتقدمة\n\n"
         
         try:
+            # قراءة جميع الشركات من الملف
+            companies = []
             with open('companies.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
-                company_count = 0
                 for row in reader:
-                    company_count += 1
-                    status = "✅" if row.get('is_active') == 'active' else "❌"
+                    companies.append(row)
+            
+            if len(companies) == 0:
+                companies_text += "❌ لا توجد شركات مسجلة\n\n"
+            else:
+                companies_text += f"📊 إجمالي الشركات: {len(companies)}\n\n"
+                
+                for row in companies:
+                    status = "✅" if row.get('is_active', '').lower() == 'active' else "❌"
                     type_display = {'deposit': 'إيداع', 'withdraw': 'سحب', 'both': 'الكل'}.get(row['type'], row['type'])
                     companies_text += f"{status} **{row['name']}** (ID: {row['id']})\n"
                     companies_text += f"   🔧 {type_display} | 📋 {row['details']}\n\n"
-                
-                if company_count == 0:
-                    companies_text += "❌ لا توجد شركات مسجلة\n\n"
-                else:
-                    companies_text += f"📊 إجمالي الشركات: {company_count}\n\n"
                     
-        except:
-            companies_text += "❌ خطأ في قراءة ملف الشركات\n\n"
+        except Exception as e:
+            companies_text += f"❌ خطأ في قراءة ملف الشركات: {str(e)}\n\n"
         
         # أزرار الإدارة المتقدمة
         management_keyboard = {
