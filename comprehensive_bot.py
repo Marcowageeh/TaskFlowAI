@@ -3324,7 +3324,8 @@ class ComprehensiveLangSenseBot:
                 new_account = parts[2]
                 new_info = parts[3] if len(parts) > 3 else ""
                 
-                # تحديث وسيلة الدفع
+                # تحديث وسيلة الدفع مع التحقق من المعرف
+                logger.info(f"محاولة تحديث وسيلة الدفع - المعرف: {method_id}, الاسم: {new_name}, البيانات: {new_account}")
                 success = self.update_payment_method(method_id, new_name, new_type, new_account, new_info)
                 
                 if success:
@@ -3351,32 +3352,42 @@ class ComprehensiveLangSenseBot:
             del self.user_states[user_id]
     
     def update_payment_method(self, method_id, new_name, new_type, new_account, new_info=""):
-        """تحديث وسيلة دفع موجودة"""
+        """تحديث وسيلة دفع موجودة - إصدار محسن"""
         try:
             methods = []
             updated = False
+            target_method = None
             
+            # قراءة جميع الوسائل أولاً
             with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row['id'] == str(method_id):
+                        # تحديث الوسيلة المحددة فقط
                         row['method_name'] = new_name
                         row['method_type'] = new_type
                         row['account_data'] = new_account
                         row['additional_info'] = new_info
                         updated = True
+                        target_method = row.copy()
+                        logger.info(f"تم تحديث وسيلة الدفع {method_id}: {new_name} - {new_account}")
                     methods.append(row)
             
-            if updated:
+            if updated and target_method:
+                # كتابة جميع الوسائل مع التأكد من التحديث الصحيح
                 with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
                     fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
                     writer.writerows(methods)
+                
+                logger.info(f"✅ تم حفظ التحديث لوسيلة الدفع {method_id} في الملف")
                 return True
             
+            logger.error(f"❌ لم يتم العثور على وسيلة الدفع {method_id}")
             return False
         except Exception as e:
+            logger.error(f"❌ خطأ في تحديث وسيلة الدفع {method_id}: {e}")
             return False
     
     def show_payment_methods_management(self, message):
@@ -3935,7 +3946,7 @@ class ComprehensiveLangSenseBot:
         return None
     
     def update_payment_method(self, method_id, new_account_data):
-        """تحديث بيانات وسيلة الدفع"""
+        """تحديث بيانات وسيلة الدفع - تحديث قديم"""
         try:
             methods = []
             updated = False
@@ -3958,6 +3969,41 @@ class ComprehensiveLangSenseBot:
                 return True
             return False
         except Exception as e:
+            return False
+
+    def update_payment_method_complete(self, method_id, new_data):
+        """تحديث شامل لوسيلة الدفع - جميع الحقول"""
+        try:
+            methods = []
+            updated = False
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        # تحديث جميع الحقول المطلوبة
+                        if 'method_name' in new_data:
+                            row['method_name'] = new_data['method_name']
+                        if 'method_type' in new_data:
+                            row['method_type'] = new_data['method_type']
+                        if 'account_data' in new_data:
+                            row['account_data'] = new_data['account_data']
+                        if 'additional_info' in new_data:
+                            row['additional_info'] = new_data['additional_info']
+                        updated = True
+                    methods.append(row)
+            
+            if updated:
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(methods)
+                
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"خطأ في تحديث وسيلة الدفع {method_id}: {e}")
             return False
     
     def start_backup_scheduler(self):
