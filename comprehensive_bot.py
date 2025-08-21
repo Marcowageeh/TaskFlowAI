@@ -748,7 +748,7 @@ class ComprehensiveLangSenseBot:
             elif 'withdraw' in state:
                 self.process_withdrawal_flow(message)
                 return
-            elif state.get('step') == 'selecting_payment_method':
+            elif isinstance(state, dict) and state.get('step') == 'selecting_payment_method':
                 self.handle_payment_method_selection(message, text)
                 return
         
@@ -881,9 +881,9 @@ class ComprehensiveLangSenseBot:
         elif text == '➕ إضافة وسيلة دفع':
             self.start_add_payment_method(message)
         elif text == '✏️ تعديل وسيلة دفع':
-            self.start_edit_payment_method(message)
+            self.send_message(message['chat']['id'], "ميزة التعديل قيد التطوير", self.admin_keyboard())
         elif text == '🗑️ حذف وسيلة دفع':
-            self.start_delete_payment_method(message)
+            self.send_message(message['chat']['id'], "ميزة الحذف قيد التطوير", self.admin_keyboard())
         elif text == '📊 عرض وسائل الدفع':
             self.show_all_payment_methods(message)
         elif text == '🏠 القائمة الرئيسية':
@@ -1965,7 +1965,7 @@ class ComprehensiveLangSenseBot:
         if not methods:
             self.send_message(message['chat']['id'], 
                             "❌ لا توجد وسائل دفع متاحة لهذه الشركة حالياً",
-                            self.get_companies_keyboard(transaction_type))
+                            self.main_keyboard('ar'))
             return
         
         methods_text = f"💳 اختر وسيلة الدفع:\n\n"
@@ -2001,8 +2001,8 @@ class ComprehensiveLangSenseBot:
     def add_payment_method(self, company_id, method_name, method_type, account_data, additional_info=""):
         """إضافة وسيلة دفع جديدة"""
         try:
-            # إنشاء ID جديد
-            new_id = int(time.time() * 1000) % 1000000
+            # إنشاء ID جديد  
+            new_id = int(datetime.now().timestamp() * 1000) % 1000000
             
             # إضافة الوسيلة الجديدة
             with open('payment_methods.csv', 'a', encoding='utf-8-sig', newline='') as f:
@@ -2384,7 +2384,7 @@ class ComprehensiveLangSenseBot:
                         companies.append(row)
                     else:
                         deleted = True
-                        deleted_name = row['name']
+                        deleted_name = row.get('name', 'Unknown')
             
             if deleted:
                 with open('companies.csv', 'w', newline='', encoding='utf-8-sig') as f:
@@ -2738,9 +2738,9 @@ class ComprehensiveLangSenseBot:
             # العودة لاختيار الشركة
             transaction_type = state.get('transaction_type')
             if transaction_type == 'deposit':
-                self.start_deposit(message)
+                self.handle_deposit(message)
             else:
-                self.start_withdrawal(message)
+                self.handle_withdrawal(message)
             return
         
         # البحث عن وسيلة الدفع المختارة
@@ -2775,9 +2775,9 @@ class ComprehensiveLangSenseBot:
         
         # تحديث الحالة
         if transaction_type == 'deposit':
-            self.user_states[user_id] = f'deposit_wallet_{company_id}_{company["name"]}_{selected_method["id"]}'
+            self.user_states[user_id] = f'deposit_wallet_{company_id}_{company["name"] if company else "unknown"}_{selected_method["id"]}'
         else:
-            self.user_states[user_id] = f'withdraw_wallet_{company_id}_{company["name"]}_{selected_method["id"]}'
+            self.user_states[user_id] = f'withdraw_wallet_{company_id}_{company["name"] if company else "unknown"}_{selected_method["id"]}'
     
     def get_company_by_id(self, company_id):
         """الحصول على شركة بواسطة ID"""
