@@ -1088,10 +1088,37 @@ class ComprehensiveLangSenseBot:
         elif text.startswith('تعديل_اعداد '):
             self.update_setting_simple(message, text)
         elif text == '✅ حفظ الشركة':
-            # التعامل مع حفظ الشركة من المعالج المتقدم
+            # التعامل مع حفظ الشركة - تنفيذ مباشر
             if user_id in self.user_states and self.user_states[user_id] == 'confirming_company':
-                # استدعاء معالج إضافة الشركة المتقدم
-                self.handle_add_company_wizard(message)
+                if user_id in self.temp_company_data:
+                    company_data = self.temp_company_data[user_id]
+                    company_id = str(int(datetime.now().timestamp()))
+                    
+                    try:
+                        # حفظ الشركة في الملف
+                        with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([company_id, company_data['name'], company_data['type'], company_data['details'], 'active'])
+                        
+                        success_msg = f"""🎉 تم إضافة الشركة بنجاح!
+
+🆔 المعرف: {company_id}
+🏢 الاسم: {company_data['name']}
+⚡ النوع: {company_data['type_display']}
+📋 التفاصيل: {company_data['details']}
+
+الشركة متاحة الآن للعملاء ✅"""
+                        
+                        self.send_message(chat_id, success_msg, self.admin_keyboard())
+                        
+                        # تنظيف البيانات المؤقتة
+                        del self.user_states[user_id]
+                        del self.temp_company_data[user_id]
+                        
+                    except Exception as e:
+                        self.send_message(chat_id, f"❌ فشل في حفظ الشركة: {str(e)}", self.admin_keyboard())
+                else:
+                    self.send_message(chat_id, "❌ لا توجد بيانات شركة محفوظة", self.admin_keyboard())
             else:
                 self.send_message(chat_id, "❌ لا توجد شركة للحفظ. ابدأ بإضافة شركة جديدة أولاً.", self.admin_keyboard())
         elif text == '✅ حفظ التغييرات':
@@ -1672,32 +1699,8 @@ class ComprehensiveLangSenseBot:
             company_data = self.temp_company_data[user_id]
             
             if text == '✅ حفظ الشركة':
-                # حفظ الشركة في الملف
-                company_id = str(int(datetime.now().timestamp()))
-                
-                try:
-                    with open('companies.csv', 'a', newline='', encoding='utf-8-sig') as f:
-                        writer = csv.writer(f)
-                        writer.writerow([company_id, company_data['name'], company_data['type'], company_data['details'], 'active'])
-                    
-                    success_msg = f"""🎉 تم إضافة الشركة بنجاح!
-
-🆔 المعرف: {company_id}
-🏢 الاسم: {company_data['name']}
-⚡ النوع: {company_data['type_display']}
-📋 التفاصيل: {company_data['details']}
-
-الشركة متاحة الآن للعملاء ✅"""
-                    
-                    self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
-                    
-                except Exception as e:
-                    self.send_message(message['chat']['id'], f"❌ فشل في حفظ الشركة: {str(e)}", self.admin_keyboard())
-                
-                # تنظيف البيانات المؤقتة
-                del self.user_states[user_id]
-                if user_id in self.temp_company_data:
-                    del self.temp_company_data[user_id]
+                # تجنب تشغيل نفس الكود مرتين - هذا يُعالج الآن في handle_admin_actions
+                pass
                     
             elif text == '❌ إلغاء':
                 del self.user_states[user_id]
