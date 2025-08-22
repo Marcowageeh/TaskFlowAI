@@ -4400,7 +4400,7 @@ class ComprehensiveDUXBot:
                 reader = csv.DictReader(f)
                 for row in reader:
                     if row['customer_id'] == customer_id:
-                        target_telegram_id = row['user_id']
+                        target_telegram_id = row['telegram_id']
                         customer_name = row['name']
                         break
         except:
