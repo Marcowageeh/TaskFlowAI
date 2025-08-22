@@ -239,30 +239,42 @@ class ComprehensiveDUXBot:
             pass
         return None
     
-    def main_keyboard(self, lang='ar'):
+    def main_keyboard(self, lang='ar', user_id=None):
         """القائمة الرئيسية"""
         if lang == 'ar':
+            keyboard = [
+                [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
+                [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
+                [{'text': '📨 شكوى'}, {'text': '🆘 دعم'}],
+                [{'text': '💱 تغيير العملة'}, {'text': '🔄 إعادة تعيين'}],
+                [{'text': '🇺🇸 English'}],
+                [{'text': '/admin'}]
+            ]
+            
+            # إضافة زر التسجيل للمستخدمين غير المسجلين
+            if user_id and not self.find_user(user_id):
+                keyboard.insert(-2, [{'text': '📝 تسجيل حساب'}])
+            
             return {
-                'keyboard': [
-                    [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
-                    [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
-                    [{'text': '📨 شكوى'}, {'text': '🆘 دعم'}],
-                    [{'text': '💱 تغيير العملة'}, {'text': '🔄 إعادة تعيين'}],
-                    [{'text': '🇺🇸 English'}],
-                    [{'text': '/admin'}]
-                ],
+                'keyboard': keyboard,
                 'resize_keyboard': True
             }
         else:
+            keyboard = [
+                [{'text': '💰 Deposit Request'}, {'text': '💸 Withdrawal Request'}],
+                [{'text': '📋 My Requests'}, {'text': '👤 Profile'}],
+                [{'text': '📨 Complaint'}, {'text': '🆘 Support'}],
+                [{'text': '💱 Change Currency'}, {'text': '🔄 Reset System'}],
+                [{'text': '🇸🇦 العربية'}],
+                [{'text': '/admin'}]
+            ]
+            
+            # إضافة زر التسجيل للمستخدمين غير المسجلين
+            if user_id and not self.find_user(user_id):
+                keyboard.insert(-2, [{'text': '📝 Register Account'}])
+            
             return {
-                'keyboard': [
-                    [{'text': '💰 Deposit Request'}, {'text': '💸 Withdrawal Request'}],
-                    [{'text': '📋 My Requests'}, {'text': '👤 Profile'}],
-                    [{'text': '📨 Complaint'}, {'text': '🆘 Support'}],
-                    [{'text': '💱 Change Currency'}, {'text': '🔄 Reset System'}],
-                    [{'text': '🇸🇦 العربية'}],
-                    [{'text': '/admin'}]
-                ],
+                'keyboard': keyboard,
                 'resize_keyboard': True
             }
     
@@ -315,7 +327,7 @@ class ComprehensiveDUXBot:
                 return
             
             welcome_text = f"مرحباً بعودتك {user['name']}! 👋\n🆔 رقم العميل: {user['customer_id']}"
-            self.send_message(chat_id, welcome_text, self.main_keyboard(user.get('language', 'ar')))
+            self.send_message(chat_id, welcome_text, self.main_keyboard(user.get('language', 'ar'), user_id))
         else:
             welcome_text = """مرحباً بك في نظام DUX المالي المتقدم! 👋
 
@@ -324,7 +336,18 @@ class ComprehensiveDUXBot:
 🔹 أمان وموثوقية عالية
 
 يرجى إرسال اسمك الكامل للتسجيل:"""
-            self.send_message(chat_id, welcome_text)
+            
+            # كيبورد للمستخدمين الجدد مع خيار التخطي
+            new_user_keyboard = {
+                'keyboard': [
+                    [{'text': '⏭️ تخطي التسجيل'}],
+                    [{'text': '🔄 إعادة تعيين النظام'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(chat_id, welcome_text, new_user_keyboard)
             self.user_states[user_id] = 'registering_name'
     
     def handle_registration(self, message):
@@ -334,6 +357,36 @@ class ComprehensiveDUXBot:
         
         if state == 'registering_name':
             name = message['text'].strip()
+            
+            # التحقق من أزرار الإدارة
+            if name == '⏭️ تخطي التسجيل':
+                # إنهاء حالة التسجيل والانتقال للقائمة الرئيسية
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
+                
+                skip_text = """✅ تم تخطي التسجيل!
+
+يمكنك استخدام النظام كزائر. لاحقاً يمكنك التسجيل لحفظ بياناتك.
+
+⚠️ ملاحظة: بدون تسجيل، لن تتمكن من:
+• حفظ طلباتك
+• تتبع حالة المعاملات
+• الوصول للدعم الفني المخصص"""
+
+                self.send_message(message['chat']['id'], skip_text, self.main_keyboard('ar', user_id))
+                return
+            elif name == '❌ إلغاء التسجيل':
+                # إلغاء التسجيل والعودة للقائمة الرئيسية
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
+                
+                cancel_text = """❌ تم إلغاء التسجيل
+
+يمكنك إعادة المحاولة في أي وقت باستخدام زر "📝 تسجيل حساب" """
+
+                self.send_message(message['chat']['id'], cancel_text, self.main_keyboard('ar', user_id))
+                return
+            
             if len(name) < 2:
                 self.send_message(message['chat']['id'], "❌ اسم قصير جداً. يرجى إدخال اسم صحيح:")
                 return
@@ -1027,11 +1080,14 @@ class ComprehensiveDUXBot:
 🏢 الشركة: DUX
 
 يمكنك أيضاً إرسال شكوى من خلال النظام"""
-            self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
+            self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar'), user_id))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
         elif text in ['💱 تغيير العملة', '💱 Change Currency']:
             self.show_currency_selection(message)
+        elif text in ['📝 تسجيل حساب', '📝 Register Account']:
+            # بدء عملية التسجيل للمستخدمين غير المسجلين
+            self.start_registration(message)
         elif text == '/myid':
             self.send_message(chat_id, f"🆔 معرف المستخدم الخاص بك: {user_id}")
         elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System', '🆘 إصلاح شامل']:
@@ -1069,6 +1125,36 @@ class ComprehensiveDUXBot:
 أو اختر من الخدمات المتاحة:"""
             
             self.send_message(chat_id, error_msg, error_keyboard)
+    
+    def start_registration(self, message):
+        """بدء عملية التسجيل للمستخدمين غير المسجلين"""
+        user_id = message['from']['id']
+        chat_id = message['chat']['id']
+        
+        # التحقق إذا كان المستخدم مسجل بالفعل
+        user = self.find_user(user_id)
+        if user:
+            self.send_message(chat_id, f"✅ أنت مسجل بالفعل!\n🆔 رقم العميل: {user['customer_id']}", 
+                            self.main_keyboard(user.get('language', 'ar'), user_id))
+            return
+        
+        # بدء عملية التسجيل
+        welcome_text = """📝 بدء التسجيل في نظام DUX
+
+يرجى إرسال اسمك الكامل للتسجيل:"""
+        
+        # كيبورد مع خيار الإلغاء
+        registration_keyboard = {
+            'keyboard': [
+                [{'text': '❌ إلغاء التسجيل'}],
+                [{'text': '🔄 إعادة تعيين النظام'}]
+            ],
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(chat_id, welcome_text, registration_keyboard)
+        self.user_states[user_id] = 'registering_name'
     
     def super_reset_user_system(self, user_id, chat_id, user):
         """إعادة تعيين شاملة وقوية للنظام"""
