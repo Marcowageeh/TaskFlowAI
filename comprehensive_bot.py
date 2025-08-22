@@ -3357,6 +3357,10 @@ class ComprehensiveLangSenseBot:
                 
                 # تحديث وسيلة الدفع
                 logger.info(f"محاولة تحديث وسيلة الدفع - المعرف: {method_id}, الاسم: {new_name}, البيانات: {new_account}")
+                
+                # تسجيل البيانات للتشخيص
+                logger.info(f"البيانات المدخلة: الاسم={new_name}, النوع={new_type}, الحساب={new_account}, المعلومات={new_info}")
+                
                 success = self.update_payment_method_safe(method_id, new_name, new_type, new_account, new_info)
                 
                 if success:
@@ -3639,6 +3643,18 @@ class ComprehensiveLangSenseBot:
         except:
             pass
         return methods
+    
+    def get_payment_method_by_id(self, method_id):
+        """الحصول على وسيلة دفع بالمعرف"""
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        return row
+        except Exception as e:
+            logger.error(f"خطأ في البحث عن وسيلة الدفع {method_id}: {e}")
+        return None
     
     def show_all_payment_methods(self, message):
         """عرض جميع وسائل الدفع المتاحة"""
