@@ -22,9 +22,10 @@ Admin Commands: Simplified format without complex syntax requirements.
 
 ### Database Layer
 - **Database**: CSV files for simplicity and transparency
-- **Files**: users.csv, transactions.csv, companies.csv, exchange_addresses.csv
-- **Schema**: Simplified tables focusing on essential data only
-- **Data Integrity**: Automatic customer code generation, basic validation
+- **Files**: users.csv, transactions.csv, companies.csv, exchange_addresses.csv, system_settings.csv
+- **Schema**: Simplified tables focusing on essential data only with currency support
+- **Currency Storage**: User currency preferences stored in users.csv, transaction currencies in transactions.csv
+- **Data Integrity**: Automatic customer code generation, basic validation, currency consistency
 
 ### User Interface
 - **Navigation**: Button-based keyboards for all interactions
@@ -45,6 +46,9 @@ Admin Commands: Simplified format without complex syntax requirements.
 ### Financial Services Workflow
 - **Enhanced Deposit Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → Completion
 - **Enhanced Withdrawal Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → **Withdrawal Address Entry** → **Confirmation Code Entry** → Final Confirmation
+- **Multi-Currency Support**: Users can select from 18 currencies including all Arab countries, USD, EUR, and Turkish Lira
+- **Currency Integration**: All transactions, amounts, and financial displays use user's selected currency
+- **Default Currency**: Saudi Riyal (SAR) with ability to change via "تغيير العملة" button
 - **Payment Method Integration**: Users select specific payment methods for each company (bank accounts, e-wallets, etc.)
 - **Status Tracking**: Simple pending/approved/rejected states
 - **Admin Approval**: Direct text-based commands (موافقة/رفض)

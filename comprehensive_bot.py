@@ -36,6 +36,28 @@ class ComprehensiveDUXBot:
         # إدارة الأدمن المؤقت (للجلسة الواحدة)
         self.temp_admin_user_ids = []
         
+        # نظام العملات
+        self.currencies = {
+            'SAR': {'name': 'الريال السعودي', 'symbol': 'ر.س', 'flag': '🇸🇦'},
+            'AED': {'name': 'الدرهم الإماراتي', 'symbol': 'د.إ', 'flag': '🇦🇪'},
+            'EGP': {'name': 'الجنيه المصري', 'symbol': 'ج.م', 'flag': '🇪🇬'},
+            'KWD': {'name': 'الدينار الكويتي', 'symbol': 'د.ك', 'flag': '🇰🇼'},
+            'QAR': {'name': 'الريال القطري', 'symbol': 'ر.ق', 'flag': '🇶🇦'},
+            'BHD': {'name': 'الدينار البحريني', 'symbol': 'د.ب', 'flag': '🇧🇭'},
+            'OMR': {'name': 'الريال العماني', 'symbol': 'ر.ع', 'flag': '🇴🇲'},
+            'JOD': {'name': 'الدينار الأردني', 'symbol': 'د.أ', 'flag': '🇯🇴'},
+            'LBP': {'name': 'الليرة اللبنانية', 'symbol': 'ل.ل', 'flag': '🇱🇧'},
+            'IQD': {'name': 'الدينار العراقي', 'symbol': 'د.ع', 'flag': '🇮🇶'},
+            'SYP': {'name': 'الليرة السورية', 'symbol': 'ل.س', 'flag': '🇸🇾'},
+            'MAD': {'name': 'الدرهم المغربي', 'symbol': 'د.م', 'flag': '🇲🇦'},
+            'TND': {'name': 'الدينار التونسي', 'symbol': 'د.ت', 'flag': '🇹🇳'},
+            'DZD': {'name': 'الدينار الجزائري', 'symbol': 'د.ج', 'flag': '🇩🇿'},
+            'LYD': {'name': 'الدينار الليبي', 'symbol': 'د.ل', 'flag': '🇱🇾'},
+            'USD': {'name': 'الدولار الأمريكي', 'symbol': '$', 'flag': '🇺🇸'},
+            'EUR': {'name': 'اليورو', 'symbol': '€', 'flag': '🇪🇺'},
+            'TRY': {'name': 'الليرة التركية', 'symbol': '₺', 'flag': '🇹🇷'}
+        }
+        
         logger.info(f"تم تحميل {len(self.admin_user_ids)} مدير دائم: {self.admin_user_ids}")
         
         # بدء نظام النسخ الاحتياطي التلقائي
@@ -47,7 +69,7 @@ class ComprehensiveDUXBot:
         if not os.path.exists('users.csv'):
             with open('users.csv', 'w', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                writer.writerow(['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason'])
+                writer.writerow(['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason', 'currency'])
         
         # ملف المعاملات المتقدم
         if not os.path.exists('transactions.csv'):
@@ -94,7 +116,8 @@ class ComprehensiveDUXBot:
                     ['min_withdrawal', '100', 'أقل مبلغ سحب'],
                     ['max_daily_withdrawal', '10000', 'أقصى سحب يومي'],
                     ['support_phone', '+966501234567', 'رقم الدعم'],
-                    ['company_name', 'DUX', 'اسم الشركة']
+                    ['company_name', 'DUX', 'اسم الشركة'],
+                    ['default_currency', 'SAR', 'العملة الافتراضية']
                 ]
                 for setting in settings:
                     writer.writerow(setting)
@@ -224,7 +247,8 @@ class ComprehensiveDUXBot:
                     [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
                     [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
                     [{'text': '📨 شكوى'}, {'text': '🆘 دعم'}],
-                    [{'text': '🔄 إعادة تعيين'}, {'text': '🇺🇸 English'}],
+                    [{'text': '💱 تغيير العملة'}, {'text': '🔄 إعادة تعيين'}],
+                    [{'text': '🇺🇸 English'}],
                     [{'text': '/admin'}]
                 ],
                 'resize_keyboard': True
@@ -235,7 +259,8 @@ class ComprehensiveDUXBot:
                     [{'text': '💰 Deposit Request'}, {'text': '💸 Withdrawal Request'}],
                     [{'text': '📋 My Requests'}, {'text': '👤 Profile'}],
                     [{'text': '📨 Complaint'}, {'text': '🆘 Support'}],
-                    [{'text': '🔄 Reset System'}, {'text': '🇸🇦 العربية'}],
+                    [{'text': '💱 Change Currency'}, {'text': '🔄 Reset System'}],
+                    [{'text': '🇸🇦 العربية'}],
                     [{'text': '/admin'}]
                 ],
                 'resize_keyboard': True
@@ -511,7 +536,7 @@ class ComprehensiveDUXBot:
                 writer = csv.writer(f)
                 writer.writerow([trans_id, user['customer_id'], user['telegram_id'], user['name'], 
                                'deposit', company_name, wallet_number, amount, '', 'pending', 
-                               datetime.now().strftime('%Y-%m-%d %H:%M'), '', ''])
+                               datetime.now().strftime('%Y-%m-%d %H:%M'), '', '', user_currency])
             
             # رسالة تأكيد للعميل
             confirmation = f"""✅ تم إرسال طلب الإيداع بنجاح
@@ -520,7 +545,7 @@ class ComprehensiveDUXBot:
 👤 العميل: {user['name']} ({user['customer_id']})
 🏢 الشركة: {company_name}
 💳 رقم المحفظة: {wallet_number}
-💰 المبلغ: {amount} ريال
+💰 المبلغ: {self.format_amount_with_currency(amount, user_currency)}
 📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 ⏳ الحالة: في انتظار المراجعة
 
@@ -538,7 +563,7 @@ class ComprehensiveDUXBot:
 👤 العميل: {user['name']} ({user['customer_id']})
 🏢 الشركة: {company_name}
 💳 رقم المحفظة: {wallet_number}
-💰 المبلغ: {amount} ريال
+💰 المبلغ: {self.format_amount_with_currency(amount, user_currency)}
 📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 لمراجعة الطلب: موافقة {trans_id} أو رفض {trans_id} [سبب]"""
@@ -695,7 +720,7 @@ class ComprehensiveDUXBot:
                     writer = csv.writer(f)
                     writer.writerow([trans_id, user['customer_id'], user['telegram_id'], user['name'], 
                                    'withdraw', company_name, wallet_number, amount, withdrawal_address, 'pending', 
-                                   datetime.now().strftime('%Y-%m-%d %H:%M'), confirmation_code, ''])
+                                   datetime.now().strftime('%Y-%m-%d %H:%M'), confirmation_code, '', user_currency])
                 
                 # رسالة تأكيد للعميل
                 confirmation_msg = f"""✅ تم إرسال طلب السحب بنجاح
@@ -962,6 +987,9 @@ class ComprehensiveDUXBot:
             self.handle_admin_actions(message)
             return
         
+        # جلب عملة المستخدم أو العملة الافتراضية
+        user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
+        
         # معالجة القوائم الرئيسية للمستخدمين
         if text in ['💰 طلب إيداع', '💰 Deposit Request']:
             logger.info(f"معالجة طلب إيداع من {user_id}")
@@ -986,6 +1014,8 @@ class ComprehensiveDUXBot:
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
+        elif text in ['💱 تغيير العملة', '💱 Change Currency']:
+            self.show_currency_selection(message)
         elif text == '/myid':
             self.send_message(chat_id, f"🆔 معرف المستخدم الخاص بك: {user_id}")
         elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System', '🆘 إصلاح شامل']:
@@ -997,6 +1027,9 @@ class ComprehensiveDUXBot:
                 state = self.user_states[user_id]
                 if state == 'writing_complaint':
                     self.save_complaint(message, text)
+                    return
+                elif state == 'selecting_currency':
+                    self.handle_currency_selection(message, text)
                     return
             
             # رسالة خطأ محسنة مع زر إصلاح قوي
@@ -5311,6 +5344,117 @@ class ComprehensiveDUXBot:
         except:
             pass
         return default
+    
+    def show_currency_selection(self, message):
+        """عرض قائمة العملات للاختيار"""
+        currency_text = """💱 اختيار العملة
+        
+اختر العملة المفضلة لديك:
+(ستؤثر على جميع المعاملات والمبالغ في النظام)
+
+💰 العملات المتاحة:"""
+        
+        keyboard = []
+        
+        # تجميع العملات في مجموعات
+        arab_currencies = ['SAR', 'AED', 'EGP', 'KWD', 'QAR', 'BHD', 'OMR', 'JOD', 'LBP', 'IQD', 'SYP', 'MAD', 'TND', 'DZD', 'LYD']
+        international_currencies = ['USD', 'EUR', 'TRY']
+        
+        # العملات العربية
+        for currency in arab_currencies:
+            if currency in self.currencies:
+                curr_info = self.currencies[currency]
+                keyboard.append([{'text': f"{curr_info['flag']} {curr_info['name']} ({curr_info['symbol']})"}])
+        
+        # العملات الدولية
+        for currency in international_currencies:
+            if currency in self.currencies:
+                curr_info = self.currencies[currency]
+                keyboard.append([{'text': f"{curr_info['flag']} {curr_info['name']} ({curr_info['symbol']})"}])
+        
+        keyboard.append([{'text': '🔙 العودة للقائمة الرئيسية'}])
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        # حفظ حالة اختيار العملة
+        self.user_states[message['from']['id']] = 'selecting_currency'
+        
+        self.send_message(message['chat']['id'], currency_text, reply_keyboard)
+    
+    def handle_currency_selection(self, message, currency_text):
+        """معالجة اختيار العملة"""
+        try:
+            user_id = message['from']['id']
+            
+            # البحث عن العملة المحددة
+            selected_currency = None
+            for code, info in self.currencies.items():
+                if currency_text.startswith(info['flag']):
+                    selected_currency = code
+                    break
+            
+            if not selected_currency:
+                self.send_message(message['chat']['id'], "❌ عملة غير صحيحة، يرجى المحاولة مرة أخرى", self.main_keyboard())
+                return
+            
+            # تحديث عملة المستخدم
+            users = []
+            updated = False
+            
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['telegram_id'] == str(user_id):
+                        row['currency'] = selected_currency
+                        updated = True
+                    # إضافة العملة للمستخدمين الذين لا يملكونها
+                    if 'currency' not in row or not row['currency']:
+                        row['currency'] = selected_currency if row['telegram_id'] == str(user_id) else 'SAR'
+                    users.append(row)
+            
+            if updated:
+                # إضافة عمود العملة إذا لم يكن موجوداً
+                fieldnames = ['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason', 'currency']
+                
+                with open('users.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(users)
+                
+                curr_info = self.currencies[selected_currency]
+                success_msg = f"""✅ تم تغيير العملة بنجاح!
+                
+💰 العملة الجديدة: {curr_info['name']}
+🔣 الرمز: {curr_info['symbol']}
+{curr_info['flag']} البلد/المنطقة
+
+💡 ستظهر هذه العملة في جميع معاملاتك وطلباتك"""
+                
+                self.send_message(message['chat']['id'], success_msg, self.main_keyboard())
+                logger.info(f"تم تغيير عملة المستخدم {user_id} إلى {selected_currency}")
+            else:
+                self.send_message(message['chat']['id'], "❌ حدث خطأ في تحديث العملة", self.main_keyboard())
+            
+            # تنظيف الحالة
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+                
+        except Exception as e:
+            logger.error(f"خطأ في تغيير العملة: {e}")
+            self.send_message(message['chat']['id'], "❌ حدث خطأ في تغيير العملة", self.main_keyboard())
+    
+    def get_currency_symbol(self, user_currency='SAR'):
+        """جلب رمز العملة"""
+        return self.currencies.get(user_currency, self.currencies['SAR'])['symbol']
+    
+    def format_amount_with_currency(self, amount, user_currency='SAR'):
+        """تنسيق المبلغ مع العملة"""
+        symbol = self.get_currency_symbol(user_currency)
+        return f"{amount} {symbol}"
 
 if __name__ == "__main__":
     # جلب التوكن
