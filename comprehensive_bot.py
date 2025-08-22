@@ -1134,6 +1134,23 @@ class ComprehensiveLangSenseBot:
             self.prompt_ban_user(message)
         elif text == '✅ إلغاء حظر':
             self.prompt_unban_user(message)
+        
+        # معالجة أوامر النص المباشرة
+        elif text.startswith('حظر '):
+            parts = text.split(' ', 2)
+            if len(parts) >= 3:
+                customer_id = parts[1]
+                reason = parts[2]
+                self.ban_user_admin(message, customer_id, reason)
+            else:
+                self.send_message(chat_id, "❌ الصيغة الصحيحة:\nحظر [رقم_العميل] [سبب_الحظر]\nمثال: حظر C810563 مخالفة الشروط", self.admin_keyboard())
+        
+        elif text.startswith('الغاء_حظر ') or text.startswith('الغاء حظر '):
+            customer_id = text.replace('الغاء_حظر ', '').replace('الغاء حظر ', '').strip()
+            if customer_id:
+                self.unban_user_admin(message, customer_id)
+            else:
+                self.send_message(chat_id, "❌ الصيغة الصحيحة:\nالغاء_حظر [رقم_العميل]\nمثال: الغاء_حظر C810563", self.admin_keyboard())
         elif text == '📝 إضافة شركة':
             self.start_add_company_wizard(message)
         elif text == '⚙️ إدارة الشركات':
@@ -1804,12 +1821,42 @@ class ComprehensiveLangSenseBot:
         self.send_message(message['chat']['id'], ban_help, self.admin_keyboard())
     
     def prompt_unban_user(self, message):
-        """طلب إلغاء حظر مستخدم"""
+        """طلب إلغاء حظر مستخدم مع عرض المستخدمين المحظورين"""
+        # البحث عن المستخدمين المحظورين
+        banned_users = []
+        try:
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get('is_banned', 'no') == 'yes':
+                        banned_users.append({
+                            'customer_id': row['customer_id'],
+                            'name': row['name'],
+                            'ban_reason': row.get('ban_reason', 'غير محدد')
+                        })
+        except:
+            pass
+        
         unban_help = """✅ إلغاء حظر مستخدم
 
-الصيغة: الغاء_حظر رقم_العميل
+📝 الصيغة الصحيحة:
+الغاء_حظر [رقم_العميل]
+أو: الغاء حظر [رقم_العميل]
 
-مثال: الغاء_حظر C123456"""
+مثال:
+الغاء_حظر C810563"""
+        
+        if banned_users:
+            unban_help += "\n\n🚫 المستخدمين المحظورين حالياً:\n"
+            for user in banned_users:
+                unban_help += f"\n🆔 {user['customer_id']}\n"
+                unban_help += f"👤 {user['name']}\n"
+                unban_help += f"📝 السبب: {user['ban_reason']}\n"
+                unban_help += f"⚡ `الغاء_حظر {user['customer_id']}`\n"
+                unban_help += "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n"
+        else:
+            unban_help += "\n\n✅ لا يوجد مستخدمين محظورين حالياً"
+        
         self.send_message(message['chat']['id'], unban_help, self.admin_keyboard())
     
     def prompt_add_company(self, message):
