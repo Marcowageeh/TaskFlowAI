@@ -498,11 +498,12 @@ class ComprehensiveDUXBot:
             
             # الانتقال لمرحلة إدخال المبلغ
             min_deposit = self.get_setting('min_deposit') or '50'
+            currency_symbol = self.get_currency_symbol(user_currency)
             amount_text = f"""✅ تم حفظ رقم المحفظة: {wallet_number}
 
 💰 الآن أدخل المبلغ المطلوب إيداعه:
 
-📌 أقل مبلغ للإيداع: {min_deposit} ريال
+📌 أقل مبلغ للإيداع: {min_deposit} {currency_symbol}
 💡 أدخل المبلغ بالأرقام فقط (مثال: 500)"""
             
             self.send_message(message['chat']['id'], amount_text)
@@ -520,7 +521,8 @@ class ComprehensiveDUXBot:
                 min_deposit = float(self.get_setting('min_deposit') or '50')
                 
                 if amount < min_deposit:
-                    self.send_message(message['chat']['id'], f"❌ أقل مبلغ للإيداع {min_deposit} ريال. يرجى إدخال مبلغ أكبر:")
+                    currency_symbol = self.get_currency_symbol(user_currency)
+                    self.send_message(message['chat']['id'], f"❌ أقل مبلغ للإيداع {min_deposit} {currency_symbol}. يرجى إدخال مبلغ أكبر:")
                     return
                     
             except ValueError:
@@ -610,12 +612,13 @@ class ComprehensiveDUXBot:
             # الانتقال لمرحلة إدخال المبلغ
             min_withdrawal = self.get_setting('min_withdrawal') or '100'
             max_withdrawal = self.get_setting('max_daily_withdrawal') or '10000'
+            currency_symbol = self.get_currency_symbol(user_currency)
             amount_text = f"""✅ تم حفظ رقم المحفظة: {wallet_number}
 
 💰 الآن أدخل المبلغ المطلوب سحبه:
 
-📌 أقل مبلغ للسحب: {min_withdrawal} ريال
-📌 أقصى مبلغ يومي: {max_withdrawal} ريال
+📌 أقل مبلغ للسحب: {min_withdrawal} {currency_symbol}
+📌 أقصى مبلغ يومي: {max_withdrawal} {currency_symbol}
 💡 أدخل المبلغ بالأرقام فقط (مثال: 1000)"""
             
             self.send_message(message['chat']['id'], amount_text)
@@ -634,11 +637,13 @@ class ComprehensiveDUXBot:
                 max_withdrawal = float(self.get_setting('max_daily_withdrawal') or '10000')
                 
                 if amount < min_withdrawal:
-                    self.send_message(message['chat']['id'], f"❌ أقل مبلغ للسحب {min_withdrawal} ريال. يرجى إدخال مبلغ أكبر:")
+                    currency_symbol = self.get_currency_symbol(user_currency)
+                    self.send_message(message['chat']['id'], f"❌ أقل مبلغ للسحب {min_withdrawal} {currency_symbol}. يرجى إدخال مبلغ أكبر:")
                     return
                 
                 if amount > max_withdrawal:
-                    self.send_message(message['chat']['id'], f"❌ أقصى مبلغ للسحب اليومي {max_withdrawal} ريال. يرجى إدخال مبلغ أقل:")
+                    currency_symbol = self.get_currency_symbol(user_currency)
+                    self.send_message(message['chat']['id'], f"❌ أقصى مبلغ للسحب اليومي {max_withdrawal} {currency_symbol}. يرجى إدخال مبلغ أقل:")
                     return
                     
             except ValueError:
@@ -648,7 +653,8 @@ class ComprehensiveDUXBot:
             # عرض عنوان السحب الثابت وطلب كود التأكيد
             withdrawal_address = self.get_exchange_address()
             
-            confirm_text = f"""✅ تم تأكيد المبلغ: {amount} ريال
+            currency_symbol = self.get_currency_symbol(user_currency)
+            confirm_text = f"""✅ تم تأكيد المبلغ: {amount} {currency_symbol}
 
 📍 عنوان السحب: 
 {withdrawal_address}
@@ -675,11 +681,12 @@ class ComprehensiveDUXBot:
                 return
             
             # التأكيد النهائي مع أزرار
+            currency_symbol = self.get_currency_symbol(user_currency)
             final_confirm_text = f"""📋 مراجعة نهائية لطلب السحب:
 
 🏢 الشركة: {company_name}
 💳 رقم المحفظة: {wallet_number}
-💰 المبلغ: {amount} ريال
+💰 المبلغ: {amount} {currency_symbol}
 📍 عنوان السحب: {withdrawal_address}
 🔐 كود التأكيد: {confirmation_code}
 
