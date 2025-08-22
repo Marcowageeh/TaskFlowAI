@@ -4694,8 +4694,13 @@ class ComprehensiveLangSenseBot:
 شكراً لتواصلك معنا ونتطلع لخدمتك دائماً 🙏"""
                 
                 # إرسال الرد للعميل بدون كيبورد لعدم التداخل
-                self.send_message_without_keyboard(customer_telegram_id, customer_message)
-                logger.info(f"تم إرسال رد الشكوى {complaint_id} للعميل {customer_telegram_id}")
+                result = self.send_message_without_keyboard(customer_telegram_id, customer_message)
+                if result and result.get('ok'):
+                    logger.info(f"✅ تم إرسال رد الشكوى {complaint_id} للعميل {customer_telegram_id} بنجاح")
+                else:
+                    logger.error(f"❌ فشل في إرسال رد الشكوى {complaint_id} للعميل {customer_telegram_id}")
+                    # محاولة أخرى بالطريقة العادية
+                    self.send_message(customer_telegram_id, customer_message)
                 
         except Exception as e:
             logger.error(f"خطأ في إرسال رد الشكوى للعميل: {e}")
@@ -4709,11 +4714,28 @@ class ComprehensiveLangSenseBot:
                 'text': text,
                 'parse_mode': 'Markdown'
             }
-            response = requests.post(url, json=data)
-            return response.json()
+            
+            # تحويل البيانات إلى JSON
+            json_data = json.dumps(data).encode('utf-8')
+            
+            # إنشاء الطلب
+            req = urllib.request.Request(url, data=json_data, headers={
+                'Content-Type': 'application/json',
+                'Content-Length': len(json_data)
+            })
+            
+            # إرسال الطلب
+            with urllib.request.urlopen(req) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                return result
+                
         except Exception as e:
             logger.error(f"Error sending message without keyboard: {e}")
-            return None
+            # محاولة بديلة بالطريقة العادية
+            try:
+                return self.send_message(chat_id, text)
+            except:
+                return None
     
     def show_support_data_editor(self, message):
         """عرض محرر بيانات الدعم"""
