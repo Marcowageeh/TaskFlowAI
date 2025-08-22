@@ -938,6 +938,9 @@ class ComprehensiveLangSenseBot:
                         complaint_id = admin_state.replace('replying_to_complaint_', '')
                         self.handle_complaint_reply_buttons(message, complaint_id)
                         return
+                    elif admin_state.startswith('editing_support_'):
+                        self.handle_support_data_edit(message, admin_state)
+                        return
 
             
             # معالجة النصوص والأزرار للأدمن
@@ -1162,6 +1165,16 @@ class ComprehensiveLangSenseBot:
         elif text == '📍 إدارة العناوين':
             self.show_addresses_management(message)
         elif text == '🛠️ تعديل بيانات الدعم':
+            self.show_support_data_editor(message)
+        elif text == '📞 تعديل رقم الهاتف':
+            self.start_phone_edit_wizard(message)
+        elif text == '💬 تعديل حساب التليجرام':
+            self.start_telegram_edit_wizard(message)
+        elif text == '📧 تعديل البريد الإلكتروني':
+            self.start_email_edit_wizard(message)
+        elif text == '🕒 تعديل ساعات العمل':
+            self.start_hours_edit_wizard(message)
+        elif text == '🔄 تحديث بيانات الدعم':
             self.show_support_data_editor(message)
         elif text == '⚙️ إعدادات النظام':
             self.show_system_settings(message)
@@ -4708,10 +4721,10 @@ class ComprehensiveLangSenseBot:
 
 يمكنك تعديل بيانات الدعم والمساعدة من هنا:
 
-📞 رقم الدعم الحالي: +966123456789
-💬 رابط التليجرام: @support_team
-📧 البريد الإلكتروني: support@company.com
-🕒 ساعات العمل: 9 صباحاً - 6 مساءً
+📞 رقم الدعم الحالي: {self.get_support_setting('support_phone', '+966123456789')}
+💬 رابط التليجرام: {self.get_support_setting('support_telegram', '@support_team')}
+📧 البريد الإلكتروني: {self.get_support_setting('support_email', 'support@company.com')}
+🕒 ساعات العمل: {self.get_support_setting('support_hours', '9 صباحاً - 6 مساءً')}
 
 استخدم الأوامر التالية للتعديل:
 
@@ -4738,6 +4751,153 @@ class ComprehensiveLangSenseBot:
         }
         
         self.send_message(message['chat']['id'], support_text, reply_keyboard)
+    
+    def start_phone_edit_wizard(self, message):
+        """بدء معالج تعديل رقم الهاتف"""
+        edit_text = """📞 تعديل رقم الهاتف
+
+الرقم الحالي: +966123456789
+
+اكتب الرقم الجديد:
+مثال: +966987654321
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], edit_text)
+        self.user_states[message['from']['id']] = 'editing_support_phone'
+    
+    def start_telegram_edit_wizard(self, message):
+        """بدء معالج تعديل حساب التليجرام"""
+        edit_text = """💬 تعديل حساب التليجرام
+
+الحساب الحالي: @support_team
+
+اكتب اسم المستخدم الجديد:
+مثال: @new_support
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], edit_text)
+        self.user_states[message['from']['id']] = 'editing_support_telegram'
+    
+    def start_email_edit_wizard(self, message):
+        """بدء معالج تعديل البريد الإلكتروني"""
+        edit_text = """📧 تعديل البريد الإلكتروني
+
+البريد الحالي: support@company.com
+
+اكتب البريد الجديد:
+مثال: newemail@company.com
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], edit_text)
+        self.user_states[message['from']['id']] = 'editing_support_email'
+    
+    def start_hours_edit_wizard(self, message):
+        """بدء معالج تعديل ساعات العمل"""
+        edit_text = """🕒 تعديل ساعات العمل
+
+الساعات الحالية: 9 صباحاً - 6 مساءً
+
+اكتب ساعات العمل الجديدة:
+مثال: 8 صباحاً - 10 مساءً
+
+⬅️ /cancel للإلغاء"""
+        
+        self.send_message(message['chat']['id'], edit_text)
+        self.user_states[message['from']['id']] = 'editing_support_hours'
+    
+    def handle_support_data_edit(self, message, state):
+        """معالجة تعديل بيانات الدعم"""
+        text = message.get('text', '').strip()
+        user_id = message['from']['id']
+        
+        if text == '/cancel':
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.show_support_data_editor(message)
+            return
+        
+        # تحديد نوع التعديل
+        if state == 'editing_support_phone':
+            success_msg = f"✅ تم تحديث رقم الهاتف إلى: {text}"
+            self.save_support_setting('support_phone', text)
+        elif state == 'editing_support_telegram':
+            success_msg = f"✅ تم تحديث حساب التليجرام إلى: {text}"
+            self.save_support_setting('support_telegram', text)
+        elif state == 'editing_support_email':
+            success_msg = f"✅ تم تحديث البريد الإلكتروني إلى: {text}"
+            self.save_support_setting('support_email', text)
+        elif state == 'editing_support_hours':
+            success_msg = f"✅ تم تحديث ساعات العمل إلى: {text}"
+            self.save_support_setting('support_hours', text)
+        else:
+            success_msg = "❌ خطأ في تحديث البيانات"
+        
+        # إرسال رسالة التأكيد والعودة لمحرر البيانات
+        self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+        
+        # تنظيف الحالة
+        if user_id in self.user_states:
+            del self.user_states[user_id]
+    
+    def save_support_setting(self, key, value):
+        """حفظ إعداد الدعم"""
+        try:
+            # قراءة الإعدادات الموجودة
+            settings = []
+            setting_exists = False
+            
+            try:
+                with open('system_settings.csv', 'r', encoding='utf-8-sig') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if row['setting_key'] == key:
+                            row['setting_value'] = value
+                            setting_exists = True
+                        settings.append(row)
+            except FileNotFoundError:
+                pass
+            
+            # إضافة الإعداد الجديد إذا لم يكن موجوداً
+            if not setting_exists:
+                descriptions = {
+                    'support_phone': 'رقم هاتف الدعم الفني',
+                    'support_telegram': 'حساب التليجرام للدعم',
+                    'support_email': 'بريد إلكتروني للدعم',
+                    'support_hours': 'ساعات عمل خدمة الدعم'
+                }
+                
+                settings.append({
+                    'setting_key': key,
+                    'setting_value': value,
+                    'description': descriptions.get(key, 'إعداد الدعم')
+                })
+            
+            # حفظ الإعدادات
+            with open('system_settings.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                fieldnames = ['setting_key', 'setting_value', 'description']
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(settings)
+                
+            logger.info(f"تم حفظ إعداد الدعم: {key} = {value}")
+            
+        except Exception as e:
+            logger.error(f"خطأ في حفظ إعداد الدعم: {e}")
+    
+    def get_support_setting(self, key, default='غير محدد'):
+        """قراءة إعداد الدعم"""
+        try:
+            with open('system_settings.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['setting_key'] == key:
+                        return row['setting_value']
+        except:
+            pass
+        return default
 
 if __name__ == "__main__":
     # جلب التوكن
