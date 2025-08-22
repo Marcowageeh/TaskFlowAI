@@ -933,6 +933,10 @@ class ComprehensiveLangSenseBot:
                     elif admin_state == 'selecting_method_to_enable':
                         self.handle_method_enable_selection(message)
                         return
+                    elif admin_state.startswith('replying_to_complaint_'):
+                        complaint_id = admin_state.replace('replying_to_complaint_', '')
+                        self.handle_complaint_reply_buttons(message, complaint_id)
+                        return
 
             
             # معالجة النصوص والأزرار للأدمن
@@ -1160,6 +1164,11 @@ class ComprehensiveLangSenseBot:
             self.show_system_settings(message)
         elif text == '📨 الشكاوى':
             self.show_complaints_admin(message)
+        elif text in ['🔄 تحديث الشكاوى', '🔄 تحديث']:
+            self.show_complaints_admin(message)
+        elif text.startswith('📞 رد على '):
+            complaint_id = text.replace('📞 رد على ', '').strip()
+            self.start_complaint_reply_wizard(message, complaint_id)
         elif text == '📋 نسخ أوامر سريعة':
             self.show_quick_copy_commands(message)
         elif text == '📧 إرسال رسالة لعميل':
@@ -2651,68 +2660,98 @@ class ComprehensiveLangSenseBot:
         self.send_message(message['chat']['id'], settings_text, self.admin_keyboard())
     
     def show_complaints_admin(self, message):
-        """عرض الشكاوى للأدمن مع أوامر نسخ سهلة"""
-        complaints_text = "📨 الشكاوى المرسلة:\n\n"
-        found_complaints = False
-        copy_commands = []
+        """عرض الشكاوى مع أزرار رد سهلة"""
+        complaints_text = "📨 الشكاوى:\n\n"
+        keyboard = []
+        
+        try:
+            with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                pending_complaints = [row for row in reader if row['status'] == 'pending']
+                
+                if not pending_complaints:
+                    complaints_text += "✅ لا توجد شكاوى معلقة"
+                    keyboard = [
+                        [{'text': '🔄 تحديث'}],
+                        [{'text': '↩️ العودة للوحة الأدمن'}]
+                    ]
+                else:
+                    for complaint in pending_complaints:
+                        complaints_text += f"🆔 {complaint['id']}\n"
+                        complaints_text += f"👤 {complaint['customer_id']}\n"
+                        complaints_text += f"📝 {complaint['message']}\n"
+                        complaints_text += f"📅 {complaint['date']}\n\n"
+                        
+                        # إضافة أزرار رد سريعة
+                        keyboard.append([{'text': f"📞 رد على {complaint['id']}"}])
+                    
+                    keyboard.extend([
+                        [{'text': '🔄 تحديث'}],
+                        [{'text': '↩️ العودة للوحة الأدمن'}]
+                    ])
+                        
+        except Exception as e:
+            complaints_text += f"❌ خطأ في قراءة الشكاوى: {e}"
+            keyboard = [
+                [{'text': '🔄 تحديث'}],
+                [{'text': '↩️ العودة للوحة الأدمن'}]
+            ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': False
+        }
+        
+        self.send_message(message['chat']['id'], complaints_text, reply_keyboard)
+    
+    def start_complaint_reply_wizard(self, message, complaint_id):
+        """بدء معالج الرد على الشكوى"""
+        # البحث عن الشكوى
+        complaint_found = False
+        complaint_data = None
         
         try:
             with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    found_complaints = True
-                    status = "✅ تم الرد" if row.get('admin_response') else "⏳ في انتظار الرد"
-                    
-                    complaints_text += f"🆔 **{row['id']}**\n"
-                    complaints_text += f"👤 عميل: {row['customer_id']}\n"
-                    complaints_text += f"📝 الشكوى: {row['message']}\n"
-                    complaints_text += f"📅 التاريخ: {row['date']}\n"
-                    complaints_text += f"🔸 {status}\n"
-                    
-                    if row.get('admin_response'):
-                        complaints_text += f"💬 الرد: {row['admin_response']}\n"
-                    else:
-                        # إضافة أوامر النسخ السريع للشكاوى غير المجاب عليها
-                        complaints_text += f"\n📋 **أوامر سريعة للرد:**\n"
-                        complaints_text += f"📞 `رد_شكوى {row['id']} شكراً لتواصلك. تم حل المشكلة.`\n"
-                        complaints_text += f"🔍 `رد_شكوى {row['id']} نحن نراجع طلبك وسنرد قريباً.`\n"
-                        complaints_text += f"✅ `رد_شكوى {row['id']} تم حل مشكلتك بنجاح.`\n"
-                        
-                        # إضافة للقائمة الجماعية
-                        copy_commands.append({
-                            'id': row['id'],
-                            'customer': row['customer_id'],
-                            'message': row['message'][:50] + '...' if len(row['message']) > 50 else row['message']
-                        })
-                    
-                    complaints_text += f"▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
+                    if row['id'] == complaint_id:
+                        complaint_found = True
+                        complaint_data = row
+                        break
         except:
             pass
         
-        if not found_complaints:
-            complaints_text += "✅ لا توجد شكاوى"
-        elif copy_commands:
-            # إضافة قسم الردود الجاهزة
-            complaints_text += "\n🔥 **ردود جاهزة للنسخ المباشر:**\n\n"
-            
-            for cmd in copy_commands:
-                complaints_text += f"**{cmd['id']} - {cmd['customer']}:**\n"
-                complaints_text += f"✅ `رد_شكوى {cmd['id']} تم حل مشكلتك بنجاح. شكراً لتواصلك.`\n"
-                complaints_text += f"🔍 `رد_شكوى {cmd['id']} نحن نراجع طلبك وسنرد خلال 24 ساعة.`\n"
-                complaints_text += f"📞 `رد_شكوى {cmd['id']} تواصل معنا على الهاتف للمساعدة.`\n\n"
-            
-            complaints_text += "💡 **طرق استخدام الردود:**\n"
-            complaints_text += "• انقر على الرد واختر 'نسخ'\n"
-            complaints_text += "• أو اكتب: رد_شكوى + رقم_الشكوى + نص_الرد\n"
-            complaints_text += "• مثال: `رد_شكوى 123 شكراً لتواصلك`\n\n"
-            
-            complaints_text += "📝 **ردود سريعة مقترحة:**\n"
-            complaints_text += "• `تم حل مشكلتك بنجاح`\n"
-            complaints_text += "• `نراجع طلبك وسنرد قريباً`\n"
-            complaints_text += "• `شكراً لتواصلك معنا`\n"
-            complaints_text += "• `تواصل معنا للمساعدة`"
+        if not complaint_found:
+            self.send_message(message['chat']['id'], f"❌ لم يتم العثور على الشكوى {complaint_id}", self.admin_keyboard())
+            return
         
-        self.send_message(message['chat']['id'], complaints_text, self.admin_keyboard())
+        # عرض تفاصيل الشكوى مع أزرار ردود سريعة
+        reply_text = f"""📞 الرد على الشكوى:
+
+🆔 رقم الشكوى: {complaint_id}
+👤 العميل: {complaint_data['customer_id']}
+📝 الشكوى: {complaint_data['message']}
+📅 التاريخ: {complaint_data['date']}
+
+اختر رد سريع أو اكتب رد مخصص:"""
+        
+        keyboard = [
+            [{'text': f"✅ تم الحل - {complaint_id}"}],
+            [{'text': f"🔍 قيد المراجعة - {complaint_id}"}],
+            [{'text': f"📞 سنتواصل معك - {complaint_id}"}],
+            [{'text': f"💡 رد مخصص - {complaint_id}"}],
+            [{'text': '🔙 العودة للشكاوى'}]
+        ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], reply_text, reply_keyboard)
+        self.user_states[message['from']['id']] = f'replying_to_complaint_{complaint_id}'
     
     def show_payment_methods_admin(self, message):
         """عرض وسائل الدفع للأدمن"""
@@ -4513,6 +4552,131 @@ class ComprehensiveLangSenseBot:
                 pass
         else:
             self.send_message(message['chat']['id'], "❌ فشل في إنشاء النسخة الاحتياطية")
+    
+    def handle_complaint_reply_buttons(self, message, complaint_id):
+        """معالجة أزرار الرد على الشكاوى"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text == '🔙 العودة للشكاوى':
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.show_complaints_admin(message)
+            return
+        
+        # تحديد نوع الرد
+        reply_message = ""
+        if text.startswith('✅ تم الحل'):
+            reply_message = "شكراً لتواصلك معنا. تم حل مشكلتك بنجاح ونعتذر عن أي إزعاج."
+        elif text.startswith('🔍 قيد المراجعة'):
+            reply_message = "نحن نراجع طلبك بعناية وسنرد عليك خلال 24 ساعة. شكراً لصبرك."
+        elif text.startswith('📞 سنتواصل معك'):
+            reply_message = "سنتواصل معك قريباً عبر الهاتف أو الرسائل. شكراً لتواصلك معنا."
+        elif text.startswith('💡 رد مخصص'):
+            # طلب رد مخصص
+            custom_text = """💡 اكتب ردك المخصص:
+            
+مثال: شكراً لتواصلك، تم حل المشكلة...
+
+⬅️ /cancel للإلغاء"""
+            
+            self.send_message(message['chat']['id'], custom_text)
+            self.user_states[user_id] = f'writing_custom_reply_{complaint_id}'
+            return
+        
+        # حفظ الرد وإرساله للعميل
+        if reply_message:
+            success = self.save_complaint_reply(complaint_id, reply_message)
+            if success:
+                self.send_message(message['chat']['id'], f"✅ تم إرسال الرد للعميل!\n\n📝 الرد: {reply_message}", self.admin_keyboard())
+                # إرسال الرد للعميل
+                self.send_complaint_reply_to_customer(complaint_id, reply_message)
+            else:
+                self.send_message(message['chat']['id'], "❌ فشل في حفظ الرد", self.admin_keyboard())
+        
+        # تنظيف الحالة
+        if user_id in self.user_states:
+            del self.user_states[user_id]
+    
+    def save_complaint_reply(self, complaint_id, reply_message):
+        """حفظ رد الشكوى"""
+        try:
+            complaints = []
+            updated = False
+            
+            with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == complaint_id:
+                        row['status'] = 'resolved'
+                        row['admin_response'] = reply_message
+                        updated = True
+                    complaints.append(row)
+            
+            if updated:
+                with open('complaints.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'customer_id', 'subject', 'message', 'status', 'date', 'admin_response']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(complaints)
+                
+                return True
+            
+            return False
+        except Exception as e:
+            logger.error(f"خطأ في حفظ رد الشكوى {complaint_id}: {e}")
+            return False
+    
+    def send_complaint_reply_to_customer(self, complaint_id, reply_message):
+        """إرسال رد الشكوى للعميل"""
+        try:
+            # البحث عن بيانات العميل
+            customer_telegram_id = None
+            
+            with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == complaint_id:
+                        customer_id = row['customer_id']
+                        
+                        # البحث عن التليجرام ID من ملف المستخدمين
+                        with open('users.csv', 'r', encoding='utf-8-sig') as users_file:
+                            users_reader = csv.DictReader(users_file)
+                            for user_row in users_reader:
+                                if user_row['customer_id'] == customer_id:
+                                    customer_telegram_id = user_row['telegram_id']
+                                    break
+                        break
+            
+            if customer_telegram_id:
+                customer_message = f"""📞 رد على شكواك:
+
+🆔 رقم الشكوى: {complaint_id}
+💬 الرد: {reply_message}
+
+شكراً لتواصلك معنا ونتطلع لخدمتك دائماً 🙏"""
+                
+                # إرسال الرد للعميل بدون كيبورد لعدم التداخل
+                self.send_message_without_keyboard(customer_telegram_id, customer_message)
+                logger.info(f"تم إرسال رد الشكوى {complaint_id} للعميل {customer_telegram_id}")
+                
+        except Exception as e:
+            logger.error(f"خطأ في إرسال رد الشكوى للعميل: {e}")
+    
+    def send_message_without_keyboard(self, chat_id, text):
+        """إرسال رسالة بدون كيبورد"""
+        try:
+            url = f"https://api.telegram.org/bot{self.token}/sendMessage"
+            data = {
+                'chat_id': chat_id,
+                'text': text,
+                'parse_mode': 'Markdown'
+            }
+            response = requests.post(url, json=data)
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error sending message without keyboard: {e}")
+            return None
 
 if __name__ == "__main__":
     # جلب التوكن

@@ -1,1 +1,3 @@
-﻿id,customer_id,subject,message,status,date
+id,customer_id,subject,message,status,date,admin_response
+COMP20250822000634,C000002,مشكلة في الدفع,Xvdbdbdbsbscshhe,pending,2025-08-22 00:06,
+COMP20250822000913,C000002,مشكلة في السحب,Svdbfbbdbdevs,pending,2025-08-22 00:09,
