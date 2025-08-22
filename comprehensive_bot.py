@@ -927,6 +927,12 @@ class ComprehensiveLangSenseBot:
                         method_id = admin_state.replace('editing_method_simple_', '')
                         self.handle_simple_method_edit_data(message, method_id)
                         return
+                    elif admin_state == 'selecting_method_to_disable':
+                        self.handle_method_disable_selection(message)
+                        return
+                    elif admin_state == 'selecting_method_to_enable':
+                        self.handle_method_enable_selection(message)
+                        return
 
             
             # معالجة النصوص والأزرار للأدمن
@@ -1168,6 +1174,10 @@ class ComprehensiveLangSenseBot:
             self.start_delete_payment_method_wizard(message)
         elif text == '📊 عرض وسائل الدفع':
             self.show_all_payment_methods_simplified(message)
+        elif text == '⏹️ إيقاف وسيلة دفع':
+            self.start_disable_payment_method_wizard(message)
+        elif text == '▶️ تشغيل وسيلة دفع':
+            self.start_enable_payment_method_wizard(message)
         elif text in ['🏠 القائمة الرئيسية', '🏠 الرئيسية']:
             # إنهاء جلسة الأدمن والعودة للقائمة الرئيسية
             if message['from']['id'] in self.user_states:
@@ -3425,13 +3435,15 @@ class ComprehensiveLangSenseBot:
 • إضافة وسائل دفع جديدة
 • تعديل بيانات الوسائل الموجودة  
 • حذف وسائل الدفع
+• تشغيل/إيقاف وسائل الدفع
 • عرض جميع الوسائل المتاحة
 
 اختر العملية المطلوبة:"""
         
         keyboard = [
             [{'text': '➕ إضافة وسيلة دفع'}, {'text': '✏️ تعديل وسيلة دفع'}],
-            [{'text': '🗑️ حذف وسيلة دفع'}, {'text': '📊 عرض وسائل الدفع'}],
+            [{'text': '🗑️ حذف وسيلة دفع'}, {'text': '⏹️ إيقاف وسيلة دفع'}],
+            [{'text': '▶️ تشغيل وسيلة دفع'}, {'text': '📊 عرض وسائل الدفع'}],
             [{'text': '↩️ العودة للوحة الأدمن'}]
         ]
         
@@ -3442,6 +3454,191 @@ class ComprehensiveLangSenseBot:
         }
         
         self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def start_disable_payment_method_wizard(self, message):
+        """معالج إيقاف وسيلة دفع"""
+        methods = self.get_all_payment_methods()
+        active_methods = [m for m in methods if m['status'] == 'active']
+        
+        if not active_methods:
+            self.send_message(message['chat']['id'], "❌ لا توجد وسائل دفع نشطة لإيقافها", self.admin_keyboard())
+            return
+        
+        methods_text = "⏹️ اختر وسيلة الدفع لإيقافها:\n\n"
+        keyboard = []
+        
+        for method in active_methods:
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            methods_text += f"🆔 {method['id']} - {method['method_name']}\n"
+            methods_text += f"   🏢 {company_name}\n"
+            methods_text += f"   💳 {method['method_type']}\n\n"
+            
+            keyboard.append([{'text': f"إيقاف {method['id']}"}])
+        
+        keyboard.append([{'text': '🔙 العودة'}])
+        
+        self.user_states[message['from']['id']] = 'selecting_method_to_disable'
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def start_enable_payment_method_wizard(self, message):
+        """معالج تشغيل وسيلة دفع"""
+        methods = self.get_all_payment_methods()
+        inactive_methods = [m for m in methods if m['status'] != 'active']
+        
+        if not inactive_methods:
+            self.send_message(message['chat']['id'], "❌ جميع وسائل الدفع نشطة بالفعل", self.admin_keyboard())
+            return
+        
+        methods_text = "▶️ اختر وسيلة الدفع لتشغيلها:\n\n"
+        keyboard = []
+        
+        for method in inactive_methods:
+            company = self.get_company_by_id(method['company_id'])
+            company_name = company['name'] if company else 'غير محدد'
+            
+            methods_text += f"🆔 {method['id']} - {method['method_name']}\n"
+            methods_text += f"   🏢 {company_name}\n"
+            methods_text += f"   💳 {method['method_type']}\n\n"
+            
+            keyboard.append([{'text': f"تشغيل {method['id']}"}])
+        
+        keyboard.append([{'text': '🔙 العودة'}])
+        
+        self.user_states[message['from']['id']] = 'selecting_method_to_enable'
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': True
+        }
+        
+        self.send_message(message['chat']['id'], methods_text, reply_keyboard)
+    
+    def handle_method_disable_selection(self, message):
+        """معالجة اختيار وسيلة الدفع للإيقاف"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text in ['🔙 العودة', '⬅️ العودة']:
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.show_payment_methods_management(message)
+            return
+        
+        if text.startswith('إيقاف '):
+            method_id = text.replace('إيقاف ', '').strip()
+            success = self.toggle_payment_method_status(method_id, 'inactive')
+            
+            if success:
+                method = self.get_payment_method_by_id(method_id)
+                if method:
+                    company = self.get_company_by_id(method['company_id'])
+                    company_name = company['name'] if company else 'غير محدد'
+                    
+                    success_msg = f"""⏹️ تم إيقاف وسيلة الدفع بنجاح!
+
+🆔 المعرف: {method_id}
+🏢 الشركة: {company_name}
+📋 الاسم: {method['method_name']}
+💳 النوع: {method['method_type']}
+📊 الحالة: متوقفة ❌"""
+                    
+                    self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                else:
+                    self.send_message(message['chat']['id'], f"❌ لم يتم العثور على وسيلة الدفع {method_id}", self.admin_keyboard())
+            else:
+                self.send_message(message['chat']['id'], f"❌ فشل في إيقاف وسيلة الدفع {method_id}", self.admin_keyboard())
+            
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+    
+    def handle_method_enable_selection(self, message):
+        """معالجة اختيار وسيلة الدفع للتشغيل"""
+        user_id = message['from']['id']
+        text = message.get('text', '').strip()
+        
+        if text in ['🔙 العودة', '⬅️ العودة']:
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.show_payment_methods_management(message)
+            return
+        
+        if text.startswith('تشغيل '):
+            method_id = text.replace('تشغيل ', '').strip()
+            success = self.toggle_payment_method_status(method_id, 'active')
+            
+            if success:
+                method = self.get_payment_method_by_id(method_id)
+                if method:
+                    company = self.get_company_by_id(method['company_id'])
+                    company_name = company['name'] if company else 'غير محدد'
+                    
+                    success_msg = f"""▶️ تم تشغيل وسيلة الدفع بنجاح!
+
+🆔 المعرف: {method_id}
+🏢 الشركة: {company_name}
+📋 الاسم: {method['method_name']}
+💳 النوع: {method['method_type']}
+📊 الحالة: نشطة ✅"""
+                    
+                    self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                else:
+                    self.send_message(message['chat']['id'], f"❌ لم يتم العثور على وسيلة الدفع {method_id}", self.admin_keyboard())
+            else:
+                self.send_message(message['chat']['id'], f"❌ فشل في تشغيل وسيلة الدفع {method_id}", self.admin_keyboard())
+            
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+    
+    def toggle_payment_method_status(self, method_id, new_status):
+        """تغيير حالة وسيلة الدفع (تشغيل/إيقاف)"""
+        try:
+            methods = []
+            updated = False
+            
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['id'] == str(method_id):
+                        row['status'] = new_status
+                        updated = True
+                        logger.info(f"تم تغيير حالة وسيلة الدفع {method_id} إلى {new_status}")
+                    methods.append(row)
+            
+            if updated:
+                with open('payment_methods.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['id', 'company_id', 'method_name', 'method_type', 'account_data', 'additional_info', 'status', 'created_date']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(methods)
+                
+                return True
+            
+            return False
+        except Exception as e:
+            logger.error(f"خطأ في تغيير حالة وسيلة الدفع {method_id}: {e}")
+            return False
+    
+    def get_all_payment_methods(self):
+        """الحصول على جميع وسائل الدفع"""
+        methods = []
+        try:
+            with open('payment_methods.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    methods.append(row)
+        except:
+            pass
+        return methods
     
     def show_all_payment_methods(self, message):
         """عرض جميع وسائل الدفع المتاحة"""
@@ -3466,8 +3663,9 @@ class ComprehensiveLangSenseBot:
                     methods_text += f"🏢 **{company_name}**:\n"
                     
                     for method in methods:
-                        status_emoji = "✅" if method['status'] == 'active' else "❌"
-                        methods_text += f"  {status_emoji} {method['method_name']} (#{method['id']})\n"
+                        status_emoji = "✅" if method['status'] == 'active' else "⏹️"
+                        status_text = "نشطة" if method['status'] == 'active' else "متوقفة"
+                        methods_text += f"  {status_emoji} {method['method_name']} (#{method['id']}) - {status_text}\n"
                         methods_text += f"      📋 النوع: {method['method_type']}\n"
                         methods_text += f"      💳 البيانات: {method['account_data']}\n"
                         if method['additional_info']:
