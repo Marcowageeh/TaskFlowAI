@@ -4323,7 +4323,9 @@ class ComprehensiveDUXBot:
         
 📝 أدخل رقم العميل الذي تريد إرسال رسالة إليه:
 
-مثال: C123456
+مثال: C824717
+
+💡 تأكد من كتابة الرقم بشكل صحيح (مع الحرف C)
 
 ⬅️ /cancel للإلغاء"""
         
@@ -4335,9 +4337,10 @@ class ComprehensiveDUXBot:
         user_id = message['from']['id']
         customer_id = message.get('text', '').strip()
         
-        if customer_id == '/cancel':
-            del self.user_states[user_id]
-            self.send_message(message['chat']['id'], "تم إلغاء إرسال الرسالة", self.admin_keyboard())
+        if customer_id == '/cancel' or customer_id.lower() == 'cancel':
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "✅ تم إلغاء إرسال الرسالة", self.admin_keyboard())
             return
         
         # البحث عن العميل
@@ -4354,7 +4357,7 @@ class ComprehensiveDUXBot:
         
         if not user_found:
             self.send_message(message['chat']['id'], 
-                            f"❌ لم يتم العثور على عميل برقم: {customer_id}\n\nيرجى التحقق من الرقم والمحاولة مرة أخرى:")
+                            f"❌ لم يتم العثور على عميل برقم: {customer_id}\n\nيرجى التحقق من الرقم والمحاولة مرة أخرى:\n\n⬅️ /cancel للإلغاء")
             return
         
         # عرض معلومات العميل وطلب الرسالة
@@ -4378,9 +4381,10 @@ class ComprehensiveDUXBot:
         user_id = message['from']['id']
         message_content = message.get('text', '').strip()
         
-        if message_content == '/cancel':
-            del self.user_states[user_id]
-            self.send_message(message['chat']['id'], "تم إلغاء إرسال الرسالة", self.admin_keyboard())
+        if message_content == '/cancel' or message_content.lower() == 'cancel':
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+            self.send_message(message['chat']['id'], "✅ تم إلغاء إرسال الرسالة", self.admin_keyboard())
             return
         
         if not message_content:
@@ -4404,9 +4408,10 @@ class ComprehensiveDUXBot:
         
         if not target_telegram_id:
             self.send_message(message['chat']['id'], 
-                            f"❌ لم يتم العثور على معرف التليجرام للعميل {customer_id}", 
+                            f"❌ لم يتم العثور على معرف التليجرام للعميل {customer_id}\n\n💡 تأكد من أن العميل مسجل في النظام", 
                             self.admin_keyboard())
-            del self.user_states[user_id]
+            if user_id in self.user_states:
+                del self.user_states[user_id]
             return
         
         # إرسال الرسالة للعميل بدون لوحة مفاتيح حتى لا تؤثر على الأزرار
@@ -4414,7 +4419,7 @@ class ComprehensiveDUXBot:
         admin_name = admin_info.get('name', 'الإدارة') if admin_info else 'الإدارة'
         
         customer_message = f"""📧 رسالة من الإدارة
-        
+
 من: {admin_name}
 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
@@ -4455,7 +4460,8 @@ class ComprehensiveDUXBot:
             self.send_message(message['chat']['id'], error_msg, self.admin_keyboard())
         
         # حذف الحالة
-        del self.user_states[user_id]
+        if user_id in self.user_states:
+            del self.user_states[user_id]
     
     def start_edit_payment_method(self, message):
         """بدء تعديل وسيلة دفع"""
