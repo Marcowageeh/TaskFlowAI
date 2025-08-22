@@ -10,6 +10,7 @@ Preferred communication style: Simple, everyday language.
 UI Design: Button-based navigation preferred over text commands.
 Notifications: Only at completion of operations, not during process.
 Admin Commands: Simplified format without complex syntax requirements.
+Registration Flow: Flexible approach with skip option for immediate access and upgrade capability.
 
 ## System Architecture
 
@@ -31,6 +32,10 @@ Admin Commands: Simplified format without complex syntax requirements.
 - **Navigation**: Button-based keyboards for all interactions
 - **Language**: Arabic primary with simple interface
 - **Flow**: Linear process flows for deposits and withdrawals
+- **Registration Options**: 
+  - Initial Choice: "📝 إكمال التسجيل الآن" or "⏭️ تخطي التسجيل والدخول للنظام"
+  - Temporary User Experience: Special keyboard with "📝 إكمال التسجيل" button always available
+  - Registration Completion: Contact sharing or manual phone entry with cancellation option
 - **Withdrawal Confirmation**: Button-based final confirmation with "✅ تأكيد الطلب", "❌ إلغاء", and "🏠 القائمة الرئيسية"
 - **Advanced Reset System**: "🔄 إعادة تعيين النظام" and "🆘 إصلاح شامل" buttons for comprehensive error resolution
 - **Super Reset Function**: Complete system cleanup including user states, temporary data, and file integrity verification
@@ -40,8 +45,12 @@ Admin Commands: Simplified format without complex syntax requirements.
 
 ### Authentication & Authorization
 - **Admin System**: Environment variable-based admin user ID configuration
-- **User Registration**: Name and phone number only
-- **Session Management**: Simple state tracking for multi-step processes
+- **Flexible Registration System**: 
+  - Skip Option: Users can bypass initial registration and get temporary accounts (Txxxxxx format)
+  - Immediate Registration: Complete registration upfront for permanent accounts (Cxxxxxx format)
+  - Upgrade Path: Temporary users can complete registration anytime via "📝 إكمال التسجيل" button
+- **User Registration**: Name and phone number with contact sharing or manual entry
+- **Session Management**: Simple state tracking for multi-step processes with upgrade workflows
 
 ### Financial Services Workflow
 - **Enhanced Deposit Process**: Company Selection → **Payment Method Selection** → Wallet Number → Amount → Completion

@@ -266,6 +266,33 @@ class ComprehensiveDUXBot:
                 'resize_keyboard': True
             }
     
+    def main_keyboard_with_registration(self, language='ar'):
+        """القائمة الرئيسية مع زر إكمال التسجيل للمستخدمين المؤقتين"""
+        if language == 'ar':
+            return {
+                'keyboard': [
+                    [{'text': '💰 طلب إيداع'}, {'text': '💸 طلب سحب'}],
+                    [{'text': '📋 طلباتي'}, {'text': '👤 حسابي'}],
+                    [{'text': '📝 إكمال التسجيل'}, {'text': '📨 شكوى'}],
+                    [{'text': '💱 تغيير العملة'}, {'text': '🔄 إعادة تعيين'}],
+                    [{'text': '🆘 دعم'}, {'text': '🇺🇸 English'}],
+                    [{'text': '/admin'}]
+                ],
+                'resize_keyboard': True
+            }
+        else:
+            return {
+                'keyboard': [
+                    [{'text': '💰 Deposit Request'}, {'text': '💸 Withdrawal Request'}],
+                    [{'text': '📋 My Requests'}, {'text': '👤 Profile'}],
+                    [{'text': '📝 Complete Registration'}, {'text': '📨 Complaint'}],
+                    [{'text': '💱 Change Currency'}, {'text': '🔄 Reset System'}],
+                    [{'text': '🆘 Support'}, {'text': '🇸🇦 العربية'}],
+                    [{'text': '/admin'}]
+                ],
+                'resize_keyboard': True
+            }
+    
     def admin_keyboard(self):
         """لوحة مفاتيح الأدمن الشاملة"""
         return {
@@ -323,16 +350,164 @@ class ComprehensiveDUXBot:
 🔹 دعم فني متخصص
 🔹 أمان وموثوقية عالية
 
-يرجى إرسال اسمك الكامل للتسجيل:"""
-            self.send_message(chat_id, welcome_text)
-            self.user_states[user_id] = 'registering_name'
+اختر إحدى الخيارات التالية:"""
+            
+            # إضافة أزرار التخطي والتسجيل
+            registration_keyboard = {
+                'keyboard': [
+                    [{'text': '📝 إكمال التسجيل الآن'}],
+                    [{'text': '⏭️ تخطي التسجيل والدخول للنظام'}],
+                    [{'text': '🔄 إعادة تعيين النظام'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            self.send_message(chat_id, welcome_text, registration_keyboard)
+            self.user_states[user_id] = 'choosing_registration_option'
     
     def handle_registration(self, message):
         """معالجة التسجيل"""
         user_id = message['from']['id']
         state = self.user_states.get(user_id)
+        text = message.get('text', '').strip()
         
-        if state == 'registering_name':
+        if state == 'choosing_registration_option':
+            if text == '📝 إكمال التسجيل الآن':
+                registration_text = """ممتاز! لنبدأ التسجيل 📝
+
+يرجى إرسال اسمك الكامل:"""
+                self.send_message(message['chat']['id'], registration_text)
+                self.user_states[user_id] = 'registering_name'
+                return
+            elif text == '⏭️ تخطي التسجيل والدخول للنظام':
+                # إنشاء حساب مؤقت
+                customer_id = f"T{str(int(datetime.now().timestamp()))[-6:]}"  # T للمؤقت
+                
+                # حفظ المستخدم كمؤقت
+                with open('users.csv', 'a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([user_id, 'مستخدم مؤقت', '', customer_id, 'ar', 
+                                   datetime.now().strftime('%Y-%m-%d'), 'no', '', 'SAR'])
+                
+                temp_welcome = f"""✅ تم الدخول للنظام بحساب مؤقت!
+
+🆔 رقم العميل المؤقت: {customer_id}
+⚠️ لضمان حفظ بياناتك وتتبع معاملاتك، يُنصح بإكمال التسجيل
+
+يمكنك الآن استخدام جميع الخدمات المالية:"""
+                
+                # إضافة زر لإكمال التسجيل لاحقاً في القائمة الرئيسية
+                temp_keyboard = self.main_keyboard_with_registration()
+                self.send_message(message['chat']['id'], temp_welcome, temp_keyboard)
+                
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
+                return
+        
+        if state == 'completing_registration_name':
+            # معالجة إكمال التسجيل للمستخدمين المؤقتين
+            name = text.strip()
+            if len(name) < 2:
+                self.send_message(message['chat']['id'], "❌ اسم قصير جداً. يرجى إدخال اسم صحيح:")
+                return
+            
+            self.user_states[user_id] = f'completing_registration_phone_{name}'
+            
+            # كيبورد مشاركة جهة الاتصال
+            contact_keyboard = {
+                'keyboard': [
+                    [{'text': '📱 مشاركة رقم الهاتف', 'request_contact': True}],
+                    [{'text': '✍️ كتابة الرقم يدوياً'}],
+                    [{'text': '❌ إلغاء وإبقاء الحساب مؤقت'}]
+                ],
+                'resize_keyboard': True,
+                'one_time_keyboard': True
+            }
+            
+            phone_message = f"""ممتاز! مرحباً {name} 👋
+
+الآن أرسل رقم هاتفك:
+
+📱 يمكنك مشاركة رقمك مباشرة بالضغط على "📱 مشاركة رقم الهاتف"
+✍️ أو اكتب الرقم يدوياً مع رمز البلد (مثال: +966501234567)"""
+            
+            self.send_message(message['chat']['id'], phone_message, contact_keyboard)
+            return
+            
+        elif state.startswith('completing_registration_phone_'):
+            # معالجة رقم الهاتف لإكمال التسجيل
+            name = state.replace('completing_registration_phone_', '')
+            
+            if text == '❌ إلغاء وإبقاء الحساب مؤقت':
+                user = self.find_user(user_id)
+                self.send_message(message['chat']['id'], 
+                               f"تم الاحتفاظ بحسابك المؤقت: {user['customer_id']}\n\nيمكنك إكمال التسجيل في أي وقت لاحق 📝", 
+                               self.main_keyboard_with_registration())
+                if user_id in self.user_states:
+                    del self.user_states[user_id]
+                return
+            
+            # التحقق من نوع الرسالة
+            if 'contact' in message:
+                # مشاركة جهة الاتصال
+                phone = message['contact']['phone_number']
+                if not phone.startswith('+'):
+                    phone = '+' + phone
+            elif 'text' in message:
+                if text == '✍️ كتابة الرقم يدوياً':
+                    manual_text = """✍️ اكتب رقم هاتفك مع رمز البلد:
+
+مثال: +966501234567
+مثال: +201234567890"""
+                    self.send_message(message['chat']['id'], manual_text)
+                    return
+                
+                phone = text
+                if len(phone) < 10:
+                    self.send_message(message['chat']['id'], "❌ رقم هاتف غير صحيح. يرجى إدخال رقم صحيح مع رمز البلد:")
+                    return
+            else:
+                self.send_message(message['chat']['id'], "❌ يرجى مشاركة جهة الاتصال أو كتابة الرقم:")
+                return
+            
+            # تحديث بيانات المستخدم من مؤقت إلى دائم
+            old_user = self.find_user(user_id)
+            new_customer_id = f"C{str(int(datetime.now().timestamp()))[-6:]}"
+            
+            # تحديث البيانات في الملف
+            self.update_temp_user_to_permanent(user_id, name, phone, new_customer_id)
+            
+            success_text = f"""✅ تم إكمال التسجيل بنجاح! 🎉
+
+📊 بياناتك المحدثة:
+👤 الاسم: {name}
+📱 الهاتف: {phone}
+🆔 رقم العميل الجديد: {new_customer_id}
+📅 تاريخ التسجيل: {datetime.now().strftime('%Y-%m-%d')}
+
+🔄 تم ترقية حسابك من مؤقت إلى دائم!
+✅ الآن جميع معاملاتك محفوظة بأمان
+
+يمكنك الآن استخدام جميع الخدمات المالية:"""
+            
+            self.send_message(message['chat']['id'], success_text, self.main_keyboard())
+            
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+                
+            # إشعار الأدمن بإكمال التسجيل
+            admin_msg = f"""📝 عميل أكمل التسجيل
+
+👤 الاسم: {name}
+📱 الهاتف: {phone}
+🆔 رقم العميل الجديد: {new_customer_id}
+🔄 تم ترقيته من: {old_user['customer_id']} (مؤقت)
+📅 التاريخ: {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
+            self.notify_admins(admin_msg)
+            return
+            
+        elif state == 'registering_name':
             name = message['text'].strip()
             if len(name) < 2:
                 self.send_message(message['chat']['id'], "❌ اسم قصير جداً. يرجى إدخال اسم صحيح:")
@@ -1034,6 +1209,9 @@ class ComprehensiveDUXBot:
             self.show_currency_selection(message)
         elif text == '/myid':
             self.send_message(chat_id, f"🆔 معرف المستخدم الخاص بك: {user_id}")
+        elif text == '📝 إكمال التسجيل':
+            # للمستخدمين المؤقتين لإكمال التسجيل
+            self.handle_complete_registration(message)
         elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System', '🆘 إصلاح شامل']:
             # إجراء إعادة تعيين شاملة وقوية
             self.super_reset_user_system(user_id, chat_id, user)
@@ -4462,6 +4640,72 @@ class ComprehensiveDUXBot:
         # حذف الحالة
         if user_id in self.user_states:
             del self.user_states[user_id]
+    
+    def handle_complete_registration(self, message):
+        """معالجة إكمال التسجيل للمستخدمين المؤقتين"""
+        user_id = message['from']['id']
+        user = self.find_user(user_id)
+        
+        if not user:
+            self.send_message(message['chat']['id'], "❌ لم يتم العثور على بياناتك. يرجى إعادة المحاولة.")
+            return
+        
+        # التحقق من أن المستخدم مؤقت
+        if not user['customer_id'].startswith('T'):
+            self.send_message(message['chat']['id'], "✅ لقد أكملت التسجيل بالفعل!", 
+                            self.main_keyboard(user.get('language', 'ar')))
+            return
+        
+        # بدء عملية إكمال التسجيل
+        registration_text = """📝 إكمال التسجيل
+
+لإكمال تسجيل حسابك وضمان حفظ بياناتك بشكل آمن، نحتاج:
+
+📛 الاسم الكامل
+📱 رقم الهاتف
+
+هذا سيضمن:
+✅ حفظ معاملاتك بشكل دائم
+✅ تتبع أفضل لطلباتك  
+✅ خدمة عملاء محسنة
+
+يرجى إرسال اسمك الكامل:"""
+        
+        self.send_message(message['chat']['id'], registration_text)
+        self.user_states[user_id] = 'completing_registration_name'
+    
+    def update_temp_user_to_permanent(self, user_id, name, phone, new_customer_id):
+        """تحديث المستخدم من مؤقت إلى دائم"""
+        users = []
+        updated = False
+        
+        try:
+            # قراءة جميع المستخدمين
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row['telegram_id'] == str(user_id):
+                        # تحديث بيانات المستخدم
+                        row['name'] = name
+                        row['phone'] = phone
+                        row['customer_id'] = new_customer_id
+                        row['date'] = datetime.now().strftime('%Y-%m-%d')
+                        updated = True
+                    users.append(row)
+            
+            if updated:
+                # إعادة كتابة الملف
+                with open('users.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    fieldnames = ['telegram_id', 'name', 'phone', 'customer_id', 'language', 'date', 'is_banned', 'ban_reason', 'currency']
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    writer.writerows(users)
+                    
+        except Exception as e:
+            logger.error(f"خطأ في تحديث المستخدم: {e}")
+            return False
+            
+        return updated
     
     def start_edit_payment_method(self, message):
         """بدء تعديل وسيلة دفع"""
