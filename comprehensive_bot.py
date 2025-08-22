@@ -2904,9 +2904,16 @@ class ComprehensiveLangSenseBot:
         complaint_id = f"COMP{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         try:
+            # إنشاء ملف الشكاوى مع الهيكل الصحيح إذا لم يكن موجوداً
+            if not os.path.exists('complaints.csv'):
+                with open('complaints.csv', 'w', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['id', 'customer_id', 'subject', 'message', 'status', 'date', 'admin_response'])
+            
+            # إضافة الشكوى الجديدة
             with open('complaints.csv', 'a', newline='', encoding='utf-8-sig') as f:
                 writer = csv.writer(f)
-                writer.writerow([complaint_id, user['customer_id'], complaint_text, 'pending', 
+                writer.writerow([complaint_id, user['customer_id'], 'شكوى جديدة', complaint_text, 'pending', 
                                datetime.now().strftime('%Y-%m-%d %H:%M'), ''])
             
             confirmation = f"""✅ تم إرسال شكواك بنجاح
@@ -2918,7 +2925,8 @@ class ComprehensiveLangSenseBot:
 سيتم الرد عليك في أقرب وقت ممكن."""
             
             self.send_message(message['chat']['id'], confirmation, self.main_keyboard(user.get('language', 'ar')))
-            del self.user_states[message['from']['id']]
+            if message['from']['id'] in self.user_states:
+                del self.user_states[message['from']['id']]
             
             # إشعار الأدمن بالشكوى الجديدة
             admin_msg = f"""📨 شكوى جديدة
@@ -2929,9 +2937,12 @@ class ComprehensiveLangSenseBot:
 📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}"""
             
             self.notify_admins(admin_msg)
-        except:
+            
+        except Exception as e:
+            logger.error(f"خطأ في حفظ الشكوى: {e}")
             self.send_message(message['chat']['id'], "❌ فشل في إرسال الشكوى. حاول مرة أخرى", self.main_keyboard(user.get('language', 'ar')))
-            del self.user_states[message['from']['id']]
+            if message['from']['id'] in self.user_states:
+                del self.user_states[message['from']['id']]
     
     def send_broadcast_message(self, message, broadcast_text):
         """إرسال رسالة جماعية"""
@@ -4611,6 +4622,7 @@ class ComprehensiveLangSenseBot:
                         row['status'] = 'resolved'
                         row['admin_response'] = reply_message
                         updated = True
+                        logger.info(f"تم العثور على الشكوى {complaint_id} وتحديثها")
                     complaints.append(row)
             
             if updated:

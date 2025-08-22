@@ -1,3 +1,4 @@
 id,customer_id,subject,message,status,date,admin_response
-COMP20250822000634,C000002,مشكلة في الدفع,Xvdbdbdbsbscshhe,pending,2025-08-22 00:06,
-COMP20250822000913,C000002,مشكلة في السحب,Svdbfbbdbdevs,pending,2025-08-22 00:09,
+COMP20250822000634,C000002,مشكلة في الدفع,Xvdbdbdbsbscshhe,resolved,2025-08-22 00:06,شكراً لتواصلك معنا. تم حل مشكلتك بنجاح ونعتذر عن أي إزعاج.
+COMP20250822002001,C000002,شكوى جديدة,Dbdbdbfsnsgegnwtnafbavqdbegndgmeg,pending,2025-08-22 00:20,
+COMP20250822002100,C000002,شكوى جديدة,Svdbfbdgdgnsgnsgnsf,pending,2025-08-22 00:21,
