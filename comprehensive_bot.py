@@ -33,7 +33,10 @@ class ComprehensiveDUXBot:
         else:
             self.admin_user_ids = []
         
-        logger.info(f"تم تحميل {len(self.admin_user_ids)} مدير: {self.admin_user_ids}")
+        # إدارة الأدمن المؤقت (للجلسة الواحدة)
+        self.temp_admin_user_ids = []
+        
+        logger.info(f"تم تحميل {len(self.admin_user_ids)} مدير دائم: {self.admin_user_ids}")
         
         # بدء نظام النسخ الاحتياطي التلقائي
         self.start_backup_scheduler()
@@ -139,7 +142,9 @@ class ComprehensiveDUXBot:
     
     def is_admin(self, telegram_id):
         """فحص صلاحية الأدمن"""
-        return str(telegram_id) in self.admin_ids
+        return (str(telegram_id) in self.admin_ids or 
+                int(telegram_id) in self.admin_user_ids or 
+                int(telegram_id) in self.temp_admin_user_ids)
     
     def notify_admins(self, message):
         """إشعار جميع الأدمن"""
@@ -250,7 +255,7 @@ class ComprehensiveDUXBot:
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
                 [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
                 [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🔄 إعادة تعيين النظام'}],
-                [{'text': '👥 إضافة أدمن'}, {'text': '📋 قائمة الأدمن'}],
+                [{'text': '👥 إدارة الأدمن'}],
                 [{'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
@@ -1136,10 +1141,20 @@ class ComprehensiveDUXBot:
             self.show_users_management(message)
         elif text == '🔍 البحث':
             self.prompt_admin_search(message)
-        elif text == '👥 إضافة أدمن':
-            self.prompt_add_admin(message)
-        elif text == '📋 قائمة الأدمن':
-            self.show_admin_list(message)
+        elif text == '👥 إدارة الأدمن':
+            self.show_admin_management(message)
+        elif text == '📋 عرض قائمة المديرين':
+            self.show_detailed_admin_list(message)
+        elif text == '➕ إضافة مدير دائم':
+            self.prompt_add_permanent_admin(message)
+        elif text == '🕐 إضافة مدير مؤقت':
+            self.prompt_add_temp_admin(message)
+        elif text == '➖ إزالة مدير':
+            self.prompt_remove_admin(message)
+        elif text == '📊 إحصائيات المديرين':
+            self.show_admin_statistics(message)
+        elif text == '🆔 معرف المستخدم':
+            self.send_message(message['chat']['id'], f"🆔 معرف المستخدم الخاص بك: {message['from']['id']}", self.admin_keyboard())
         elif text == '💳 وسائل الدفع':
             self.show_payment_methods_management(message)
         elif text == '📊 الإحصائيات':
@@ -1291,6 +1306,12 @@ class ComprehensiveDUXBot:
         elif text.startswith('اضافة ادمن '):
             user_id_to_add = text.replace('اضافة ادمن ', '')
             self.add_admin_user(message, user_id_to_add)
+        elif text.startswith('ادمن_مؤقت '):
+            user_id_to_add = text.replace('ادمن_مؤقت ', '')
+            self.add_temp_admin(message, user_id_to_add)
+        elif text.startswith('ازالة_ادمن '):
+            user_id_to_remove = text.replace('ازالة_ادمن ', '')
+            self.remove_admin_user(message, user_id_to_remove)
         elif text.startswith('حظر '):
             parts = text.replace('حظر ', '').split(' ', 1)
             customer_id = parts[0]
@@ -1908,6 +1929,222 @@ class ComprehensiveDUXBot:
         admin_text += f"\n📊 العدد الإجمالي: {len(self.admin_user_ids)} مدير"
         
         self.send_message(message['chat']['id'], admin_text, self.admin_keyboard())
+    
+    def show_admin_management(self, message):
+        """لوحة إدارة المديرين المتقدمة"""
+        admin_text = """👥 إدارة المديرين
+        
+🔧 الخيارات المتاحة:
+
+📋 عرض المديرين الحاليين
+➕ إضافة مدير جديد (دائم)
+🕐 إضافة مدير مؤقت (للجلسة)
+➖ إزالة مدير
+📊 إحصائيات المديرين
+
+اختر الخيار المطلوب:"""
+        
+        keyboard = [
+            [{'text': '📋 عرض قائمة المديرين'}, {'text': '➕ إضافة مدير دائم'}],
+            [{'text': '🕐 إضافة مدير مؤقت'}, {'text': '➖ إزالة مدير'}],
+            [{'text': '📊 إحصائيات المديرين'}, {'text': '🆔 معرف المستخدم'}],
+            [{'text': '↩️ العودة للوحة الأدمن'}]
+        ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': False
+        }
+        
+        self.send_message(message['chat']['id'], admin_text, reply_keyboard)
+        
+    def add_temp_admin(self, message, user_id_to_add):
+        """إضافة مدير مؤقت للجلسة الحالية فقط"""
+        try:
+            if not user_id_to_add.isdigit():
+                self.send_message(message['chat']['id'], "❌ معرف المستخدم يجب أن يكون رقماً صحيحاً", self.admin_keyboard())
+                return
+            
+            user_id = int(user_id_to_add)
+            
+            if user_id in self.temp_admin_user_ids:
+                self.send_message(message['chat']['id'], f"⚠️ المستخدم {user_id_to_add} مدير مؤقت بالفعل", self.admin_keyboard())
+                return
+            
+            if user_id in self.admin_user_ids:
+                self.send_message(message['chat']['id'], f"⚠️ المستخدم {user_id_to_add} مدير دائم بالفعل", self.admin_keyboard())
+                return
+            
+            self.temp_admin_user_ids.append(user_id)
+            
+            success_msg = f"""✅ تم إضافة مدير مؤقت بنجاح!
+            
+🆔 معرف المستخدم: {user_id_to_add}
+🕐 نوع الصلاحية: مؤقت (للجلسة الحالية)
+⏰ ينتهي عند: إعادة تشغيل النظام
+
+💡 المدير المؤقت له جميع الصلاحيات حتى إعادة تشغيل النظام"""
+            
+            self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+            logger.info(f"تم إضافة مدير مؤقت: {user_id_to_add}")
+            
+        except Exception as e:
+            logger.error(f"خطأ في إضافة المدير المؤقت: {e}")
+            self.send_message(message['chat']['id'], "❌ حدث خطأ أثناء إضافة المدير المؤقت", self.admin_keyboard())
+    
+    def remove_admin_user(self, message, user_id_to_remove):
+        """إزالة مدير"""
+        try:
+            if not user_id_to_remove.isdigit():
+                self.send_message(message['chat']['id'], "❌ معرف المستخدم يجب أن يكون رقماً صحيحاً", self.admin_keyboard())
+                return
+            
+            user_id = int(user_id_to_remove)
+            removed = False
+            admin_type = ""
+            
+            # إزالة من المديرين المؤقتين
+            if user_id in self.temp_admin_user_ids:
+                self.temp_admin_user_ids.remove(user_id)
+                removed = True
+                admin_type = "مؤقت"
+            
+            # إزالة من المديرين الدائمين (للجلسة الحالية فقط)
+            elif user_id in self.admin_user_ids:
+                self.admin_user_ids.remove(user_id)
+                removed = True
+                admin_type = "دائم (من الجلسة الحالية)"
+            
+            if removed:
+                success_msg = f"""✅ تم إزالة المدير بنجاح!
+                
+🆔 معرف المستخدم: {user_id_to_remove}
+🔧 نوع المدير: {admin_type}
+
+⚠️ ملاحظة: إذا كان مديراً دائماً، سيتم استعادته عند إعادة تشغيل النظام إلا إذا تم إزالته من متغير البيئة ADMIN_USER_IDS"""
+                
+                self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                logger.info(f"تم إزالة مدير {admin_type}: {user_id_to_remove}")
+            else:
+                self.send_message(message['chat']['id'], f"❌ المستخدم {user_id_to_remove} ليس مديراً", self.admin_keyboard())
+            
+        except Exception as e:
+            logger.error(f"خطأ في إزالة المدير: {e}")
+            self.send_message(message['chat']['id'], "❌ حدث خطأ أثناء إزالة المدير", self.admin_keyboard())
+    
+    def show_detailed_admin_list(self, message):
+        """عرض قائمة المديرين المفصلة"""
+        admin_text = "📋 قائمة المديرين المفصلة\n\n"
+        
+        # المديرين الدائمين
+        if self.admin_user_ids:
+            admin_text += "🔒 المديرين الدائمين:\n"
+            for i, admin_id in enumerate(self.admin_user_ids, 1):
+                admin_text += f"   {i}. 🆔 {admin_id} (دائم)\n"
+            admin_text += f"   📊 العدد: {len(self.admin_user_ids)}\n\n"
+        
+        # المديرين المؤقتين
+        if self.temp_admin_user_ids:
+            admin_text += "🕐 المديرين المؤقتين:\n"
+            for i, admin_id in enumerate(self.temp_admin_user_ids, 1):
+                admin_text += f"   {i}. 🆔 {admin_id} (مؤقت)\n"
+            admin_text += f"   📊 العدد: {len(self.temp_admin_user_ids)}\n\n"
+        
+        # المديرين من متغيرات البيئة
+        if self.admin_ids:
+            admin_text += "🌐 مديرين البيئة:\n"
+            for i, admin_id in enumerate(self.admin_ids, 1):
+                admin_text += f"   {i}. 🆔 {admin_id} (بيئة)\n"
+            admin_text += f"   📊 العدد: {len(self.admin_ids)}\n\n"
+        
+        total_admins = len(self.admin_user_ids) + len(self.temp_admin_user_ids) + len(self.admin_ids)
+        admin_text += f"📈 إجمالي المديرين: {total_admins}"
+        
+        self.send_message(message['chat']['id'], admin_text, self.admin_keyboard())
+    
+    def prompt_add_permanent_admin(self, message):
+        """طلب إضافة مدير دائم"""
+        help_text = """➕ إضافة مدير دائم
+        
+الصيغة: اضافة_ادمن معرف_المستخدم
+
+مثال: اضافة_ادمن 123456789
+
+💡 المدير الدائم:
+• يحتفظ بصلاحياته في الجلسة الحالية
+• يفقد الصلاحيات عند إعادة التشغيل إلا إذا تم إضافته لمتغير البيئة
+• لمعرفة معرف المستخدم: /myid"""
+        
+        self.send_message(message['chat']['id'], help_text, self.admin_keyboard())
+    
+    def prompt_add_temp_admin(self, message):
+        """طلب إضافة مدير مؤقت"""
+        help_text = """🕐 إضافة مدير مؤقت
+        
+الصيغة: ادمن_مؤقت معرف_المستخدم
+
+مثال: ادمن_مؤقت 123456789
+
+💡 المدير المؤقت:
+• صلاحيات مؤقتة للجلسة الحالية فقط
+• يفقد الصلاحيات عند إعادة تشغيل النظام
+• مناسب للمساعدين المؤقتين"""
+        
+        self.send_message(message['chat']['id'], help_text, self.admin_keyboard())
+    
+    def prompt_remove_admin(self, message):
+        """طلب إزالة مدير"""
+        help_text = """➖ إزالة مدير
+        
+الصيغة: ازالة_ادمن معرف_المستخدم
+
+مثال: ازالة_ادمن 123456789
+
+⚠️ ملاحظات مهمة:
+• يمكن إزالة المديرين المؤقتين والدائمين
+• المديرين الدائمين سيتم استعادتهم عند إعادة التشغيل
+• لإزالة دائمة، يجب تعديل متغير البيئة ADMIN_USER_IDS"""
+        
+        self.send_message(message['chat']['id'], help_text, self.admin_keyboard())
+    
+    def show_admin_statistics(self, message):
+        """عرض إحصائيات المديرين"""
+        stats_text = """📊 إحصائيات المديرين
+        
+📈 الإحصائيات العامة:
+"""
+        
+        # إحصائيات المديرين
+        permanent_count = len(self.admin_user_ids)
+        temp_count = len(self.temp_admin_user_ids)
+        env_count = len(self.admin_ids)
+        total_count = permanent_count + temp_count + env_count
+        
+        stats_text += f"🔒 مديرين دائمين: {permanent_count}\n"
+        stats_text += f"🕐 مديرين مؤقتين: {temp_count}\n"
+        stats_text += f"🌐 mديرين البيئة: {env_count}\n"
+        stats_text += f"📊 إجمالي المديرين: {total_count}\n\n"
+        
+        # إحصائيات الأمان
+        stats_text += "🔐 مستوى الأمان:\n"
+        if total_count >= 3:
+            stats_text += "🟢 ممتاز - عدد كافٍ من المديرين\n"
+        elif total_count >= 2:
+            stats_text += "🟡 جيد - يُنصح بإضافة مدير إضافي\n"
+        else:
+            stats_text += "🔴 منخفض - يُنصح بإضافة مديرين إضافيين\n"
+        
+        # توصيات
+        stats_text += "\n💡 التوصيات:\n"
+        if temp_count > permanent_count:
+            stats_text += "• تحويل بعض المديرين المؤقتين إلى دائمين\n"
+        if total_count < 2:
+            stats_text += "• إضافة مديرين احتياطيين للطوارئ\n"
+        if env_count == 0:
+            stats_text += "• إضافة مدير في متغير البيئة للاستمرارية\n"
+        
+        self.send_message(message['chat']['id'], stats_text, self.admin_keyboard())
     
     def prompt_broadcast(self, message):
         """طلب الإرسال الجماعي"""
