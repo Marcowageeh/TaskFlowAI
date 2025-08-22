@@ -26,6 +26,15 @@ class ComprehensiveDUXBot:
         self.init_files()
         self.admin_ids = self.get_admin_ids()
         
+        # تحميل معرفات الأدمن من متغيرات البيئة
+        admin_ids_str = os.getenv("ADMIN_USER_IDS", "")
+        if admin_ids_str:
+            self.admin_user_ids = [int(uid.strip()) for uid in admin_ids_str.split(",") if uid.strip().isdigit()]
+        else:
+            self.admin_user_ids = []
+        
+        logger.info(f"تم تحميل {len(self.admin_user_ids)} مدير: {self.admin_user_ids}")
+        
         # بدء نظام النسخ الاحتياطي التلقائي
         self.start_backup_scheduler()
         
@@ -1278,6 +1287,9 @@ class ComprehensiveDUXBot:
             self.search_users_admin(message, query)
         elif text.startswith('اضافة_ادمن '):
             user_id_to_add = text.replace('اضافة_ادمن ', '')
+            self.add_admin_user(message, user_id_to_add)
+        elif text.startswith('اضافة ادمن '):
+            user_id_to_add = text.replace('اضافة ادمن ', '')
             self.add_admin_user(message, user_id_to_add)
         elif text.startswith('حظر '):
             parts = text.replace('حظر ', '').split(' ', 1)
