@@ -82,7 +82,7 @@ class ComprehensiveDUXBot:
                     ['min_withdrawal', '100', 'أقل مبلغ سحب'],
                     ['max_daily_withdrawal', '10000', 'أقصى سحب يومي'],
                     ['support_phone', '+966501234567', 'رقم الدعم'],
-                    ['company_name', 'DUX Financial', 'اسم الشركة']
+                    ['company_name', 'DUX', 'اسم الشركة']
                 ]
                 for setting in settings:
                     writer.writerow(setting)
@@ -965,7 +965,7 @@ class ComprehensiveDUXBot:
 
 📞 رقم الهاتف: {self.get_setting('support_phone') or '+966501234567'}
 ⏰ ساعات العمل: 24/7
-🏢 الشركة: {self.get_setting('company_name') or 'DUX Financial'}
+🏢 الشركة: DUX
 
 يمكنك أيضاً إرسال شكوى من خلال النظام"""
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
