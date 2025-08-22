@@ -237,6 +237,7 @@ class ComprehensiveLangSenseBot:
                 [{'text': '📢 إرسال جماعي'}, {'text': '🚫 حظر مستخدم'}],
                 [{'text': '✅ إلغاء حظر'}, {'text': '📝 إضافة شركة'}],
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
+                [{'text': '🛠️ تعديل بيانات الدعم'}],
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
                 [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
                 [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🔄 إعادة تعيين النظام'}],
@@ -1160,6 +1161,8 @@ class ComprehensiveLangSenseBot:
                 self.handle_admin_panel(message)
         elif text == '📍 إدارة العناوين':
             self.show_addresses_management(message)
+        elif text == '🛠️ تعديل بيانات الدعم':
+            self.show_support_data_editor(message)
         elif text == '⚙️ إعدادات النظام':
             self.show_system_settings(message)
         elif text == '📨 الشكاوى':
@@ -4630,7 +4633,16 @@ class ComprehensiveLangSenseBot:
                     fieldnames = ['id', 'customer_id', 'subject', 'message', 'status', 'date', 'admin_response']
                     writer = csv.DictWriter(f, fieldnames=fieldnames)
                     writer.writeheader()
-                    writer.writerows(complaints)
+                    
+                    # تنظيف البيانات قبل الكتابة
+                    clean_complaints = []
+                    for complaint in complaints:
+                        clean_complaint = {}
+                        for field in fieldnames:
+                            clean_complaint[field] = complaint.get(field, '')
+                        clean_complaints.append(clean_complaint)
+                    
+                    writer.writerows(clean_complaints)
                 
                 return True
             
@@ -4689,6 +4701,43 @@ class ComprehensiveLangSenseBot:
         except Exception as e:
             logger.error(f"Error sending message without keyboard: {e}")
             return None
+    
+    def show_support_data_editor(self, message):
+        """عرض محرر بيانات الدعم"""
+        support_text = """🛠️ محرر بيانات الدعم
+
+يمكنك تعديل بيانات الدعم والمساعدة من هنا:
+
+📞 رقم الدعم الحالي: +966123456789
+💬 رابط التليجرام: @support_team
+📧 البريد الإلكتروني: support@company.com
+🕒 ساعات العمل: 9 صباحاً - 6 مساءً
+
+استخدم الأوامر التالية للتعديل:
+
+📞 `تعديل_رقم +966987654321`
+💬 `تعديل_تليجرام @new_support`
+📧 `تعديل_بريد newemail@company.com`
+🕒 `تعديل_ساعات 8 صباحاً - 10 مساءً`
+
+أو استخدم الأزرار أدناه للتعديل التفاعلي:"""
+        
+        keyboard = [
+            [{'text': '📞 تعديل رقم الهاتف'}],
+            [{'text': '💬 تعديل حساب التليجرام'}],
+            [{'text': '📧 تعديل البريد الإلكتروني'}],
+            [{'text': '🕒 تعديل ساعات العمل'}],
+            [{'text': '🔄 تحديث بيانات الدعم'}],
+            [{'text': '↩️ العودة للوحة الأدمن'}]
+        ]
+        
+        reply_keyboard = {
+            'keyboard': keyboard,
+            'resize_keyboard': True,
+            'one_time_keyboard': False
+        }
+        
+        self.send_message(message['chat']['id'], support_text, reply_keyboard)
 
 if __name__ == "__main__":
     # جلب التوكن
