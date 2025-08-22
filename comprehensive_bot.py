@@ -16,7 +16,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-class ComprehensiveLangSenseBot:
+class ComprehensiveDUXBot:
     def __init__(self, token):
         self.token = token
         self.api_url = f"https://api.telegram.org/bot{token}"
@@ -82,7 +82,7 @@ class ComprehensiveLangSenseBot:
                     ['min_withdrawal', '100', 'أقل مبلغ سحب'],
                     ['max_daily_withdrawal', '10000', 'أقصى سحب يومي'],
                     ['support_phone', '+966501234567', 'رقم الدعم'],
-                    ['company_name', 'LangSense Financial', 'اسم الشركة']
+                    ['company_name', 'DUX Financial', 'اسم الشركة']
                 ]
                 for setting in settings:
                     writer.writerow(setting)
@@ -277,7 +277,7 @@ class ComprehensiveLangSenseBot:
             welcome_text = f"مرحباً بعودتك {user['name']}! 👋\n🆔 رقم العميل: {user['customer_id']}"
             self.send_message(chat_id, welcome_text, self.main_keyboard(user.get('language', 'ar')))
         else:
-            welcome_text = """مرحباً بك في نظام LangSense المالي المتقدم! 👋
+            welcome_text = """مرحباً بك في نظام DUX المالي المتقدم! 👋
 
 🔹 خدمات الإيداع والسحب
 🔹 دعم فني متخصص
@@ -965,7 +965,7 @@ class ComprehensiveLangSenseBot:
 
 📞 رقم الهاتف: {self.get_setting('support_phone') or '+966501234567'}
 ⏰ ساعات العمل: 24/7
-🏢 الشركة: {self.get_setting('company_name') or 'LangSense Financial'}
+🏢 الشركة: {self.get_setting('company_name') or 'DUX Financial'}
 
 يمكنك أيضاً إرسال شكوى من خلال النظام"""
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
@@ -1713,7 +1713,7 @@ class ComprehensiveLangSenseBot:
     
     def run(self):
         """تشغيل البوت"""
-        logger.info(f"✅ النظام الشامل يعمل: @{os.getenv('BOT_TOKEN', 'unknown').split(':')[0] if os.getenv('BOT_TOKEN') else 'unknown'}")
+        logger.info(f"✅ نظام DUX الشامل يعمل: @{os.getenv('BOT_TOKEN', 'unknown').split(':')[0] if os.getenv('BOT_TOKEN') else 'unknown'}")
         
         while True:
             try:
@@ -4379,7 +4379,7 @@ class ComprehensiveLangSenseBot:
     def create_backup_zip(self):
         """إنشاء ملف مضغوط يحتوي على جميع بيانات النظام"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        zip_filename = f"LangSense_Backup_{timestamp}.zip"
+        zip_filename = f"DUX_Backup_{timestamp}.zip"
         
         try:
             with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
@@ -4791,15 +4791,15 @@ class ComprehensiveLangSenseBot:
 يمكنك تعديل بيانات الدعم والمساعدة من هنا:
 
 📞 رقم الدعم الحالي: {self.get_support_setting('support_phone', '+966123456789')}
-💬 رابط التليجرام: {self.get_support_setting('support_telegram', '@support_team')}
-📧 البريد الإلكتروني: {self.get_support_setting('support_email', 'support@company.com')}
+💬 رابط التليجرام: {self.get_support_setting('support_telegram', '@DUX_support')}
+📧 البريد الإلكتروني: {self.get_support_setting('support_email', 'support@dux.com')}
 🕒 ساعات العمل: {self.get_support_setting('support_hours', '9 صباحاً - 6 مساءً')}
 
 استخدم الأوامر التالية للتعديل:
 
 📞 `تعديل_رقم +966987654321`
-💬 `تعديل_تليجرام @new_support`
-📧 `تعديل_بريد newemail@company.com`
+💬 `تعديل_تليجرام @DUX_support`
+📧 `تعديل_بريد support@dux.com`
 🕒 `تعديل_ساعات 8 صباحاً - 10 مساءً`
 
 أو استخدم الأزرار أدناه للتعديل التفاعلي:"""
@@ -4839,10 +4839,10 @@ class ComprehensiveLangSenseBot:
         """بدء معالج تعديل حساب التليجرام"""
         edit_text = """💬 تعديل حساب التليجرام
 
-الحساب الحالي: @support_team
+الحساب الحالي: @DUX_support
 
 اكتب اسم المستخدم الجديد:
-مثال: @new_support
+مثال: @DUX_support
 
 ⬅️ /cancel للإلغاء"""
         
@@ -4853,10 +4853,10 @@ class ComprehensiveLangSenseBot:
         """بدء معالج تعديل البريد الإلكتروني"""
         edit_text = """📧 تعديل البريد الإلكتروني
 
-البريد الحالي: support@company.com
+البريد الحالي: support@dux.com
 
 اكتب البريد الجديد:
-مثال: newemail@company.com
+مثال: support@dux.com
 
 ⬅️ /cancel للإلغاء"""
         
@@ -4976,5 +4976,5 @@ if __name__ == "__main__":
         exit(1)
     
     # تشغيل البوت
-    bot = ComprehensiveLangSenseBot(bot_token)
+    bot = ComprehensiveDUXBot(bot_token)
     bot.run()
