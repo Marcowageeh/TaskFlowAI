@@ -497,6 +497,8 @@ class ComprehensiveDUXBot:
                 return
             
             # الانتقال لمرحلة إدخال المبلغ
+            user = self.find_user(user_id)
+            user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
             min_deposit = self.get_setting('min_deposit') or '50'
             currency_symbol = self.get_currency_symbol(user_currency)
             amount_text = f"""✅ تم حفظ رقم المحفظة: {wallet_number}
@@ -518,6 +520,8 @@ class ComprehensiveDUXBot:
             
             try:
                 amount = float(text.strip())
+                user = self.find_user(user_id)
+                user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
                 min_deposit = float(self.get_setting('min_deposit') or '50')
                 
                 if amount < min_deposit:
@@ -530,7 +534,6 @@ class ComprehensiveDUXBot:
                 return
             
             # إنشاء المعاملة
-            user = self.find_user(user_id)
             trans_id = f"DEP{datetime.now().strftime('%Y%m%d%H%M%S')}"
             
             # حفظ المعاملة
@@ -610,6 +613,8 @@ class ComprehensiveDUXBot:
                 return
             
             # الانتقال لمرحلة إدخال المبلغ
+            user = self.find_user(user_id)
+            user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
             min_withdrawal = self.get_setting('min_withdrawal') or '100'
             max_withdrawal = self.get_setting('max_daily_withdrawal') or '10000'
             currency_symbol = self.get_currency_symbol(user_currency)
@@ -633,6 +638,8 @@ class ComprehensiveDUXBot:
             
             try:
                 amount = float(text.strip())
+                user = self.find_user(user_id)
+                user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
                 min_withdrawal = float(self.get_setting('min_withdrawal') or '100')
                 max_withdrawal = float(self.get_setting('max_daily_withdrawal') or '10000')
                 
@@ -681,6 +688,8 @@ class ComprehensiveDUXBot:
                 return
             
             # التأكيد النهائي مع أزرار
+            user = self.find_user(user_id)
+            user_currency = user.get('currency', self.get_setting('default_currency') or 'SAR')
             currency_symbol = self.get_currency_symbol(user_currency)
             final_confirm_text = f"""📋 مراجعة نهائية لطلب السحب:
 
