@@ -241,6 +241,7 @@ class ComprehensiveDUXBot:
                 [{'text': '⚙️ إعدادات النظام'}, {'text': '📨 الشكاوى'}],
                 [{'text': '📋 نسخ أوامر سريعة'}, {'text': '📧 إرسال رسالة لعميل'}],
                 [{'text': '💾 نسخة احتياطية فورية'}, {'text': '🔄 إعادة تعيين النظام'}],
+                [{'text': '👥 إضافة أدمن'}, {'text': '📋 قائمة الأدمن'}],
                 [{'text': '🏠 القائمة الرئيسية'}]
             ],
             'resize_keyboard': True,
@@ -971,6 +972,8 @@ class ComprehensiveDUXBot:
             self.send_message(chat_id, support_text, self.main_keyboard(user.get('language', 'ar')))
         elif text in ['🇺🇸 English', '🇸🇦 العربية']:
             self.handle_language_change(message, text)
+        elif text == '/myid':
+            self.send_message(chat_id, f"🆔 معرف المستخدم الخاص بك: {user_id}")
         elif text in ['🔙 العودة للقائمة الرئيسية', '🔙 العودة', '⬅️ العودة', '🏠 الرئيسية', '🏠 القائمة الرئيسية', '🔄 إعادة تعيين', '🔄 إعادة تعيين النظام', '🆘 إصلاح', 'reset', 'fix', '🔄 Reset System', '🆘 إصلاح شامل']:
             # إجراء إعادة تعيين شاملة وقوية
             self.super_reset_user_system(user_id, chat_id, user)
@@ -1124,6 +1127,10 @@ class ComprehensiveDUXBot:
             self.show_users_management(message)
         elif text == '🔍 البحث':
             self.prompt_admin_search(message)
+        elif text == '👥 إضافة أدمن':
+            self.prompt_add_admin(message)
+        elif text == '📋 قائمة الأدمن':
+            self.show_admin_list(message)
         elif text == '💳 وسائل الدفع':
             self.show_payment_methods_management(message)
         elif text == '📊 الإحصائيات':
@@ -1269,6 +1276,9 @@ class ComprehensiveDUXBot:
         elif text.startswith('بحث '):
             query = text.replace('بحث ', '')
             self.search_users_admin(message, query)
+        elif text.startswith('اضافة_ادمن '):
+            user_id_to_add = text.replace('اضافة_ادمن ', '')
+            self.add_admin_user(message, user_id_to_add)
         elif text.startswith('حظر '):
             parts = text.replace('حظر ', '').split(' ', 1)
             customer_id = parts[0]
@@ -1801,6 +1811,91 @@ class ComprehensiveDUXBot:
 
 مثال: بحث أحمد"""
         self.send_message(message['chat']['id'], search_help, self.admin_keyboard())
+        
+    def search_users_admin(self, message, query):
+        """البحث في المستخدمين للأدمن"""
+        try:
+            results = []
+            with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # البحث في الاسم أو رقم العميل أو الهاتف
+                    if (query.lower() in row.get('name', '').lower() or 
+                        query in row.get('customer_id', '') or 
+                        query in row.get('phone', '')):
+                        results.append(row)
+            
+            if not results:
+                self.send_message(message['chat']['id'], f"❌ لم يتم العثور على نتائج للبحث: {query}", self.admin_keyboard())
+                return
+            
+            response = f"🔍 نتائج البحث عن: {query}\n\n"
+            for user in results:
+                ban_status = "🚫 محظور" if user.get('is_banned') == 'yes' else "✅ نشط"
+                response += f"👤 {user.get('name', 'غير محدد')}\n"
+                response += f"🆔 {user.get('customer_id', 'غير محدد')}\n"
+                response += f"📱 {user.get('phone', 'غير محدد')}\n"
+                response += f"🔸 {ban_status}\n\n"
+            
+            if len(response) > 4000:
+                response = response[:4000] + "\n... والمزيد من النتائج"
+            
+            self.send_message(message['chat']['id'], response, self.admin_keyboard())
+            
+        except Exception as e:
+            logger.error(f"خطأ في البحث: {e}")
+            self.send_message(message['chat']['id'], "❌ حدث خطأ أثناء البحث", self.admin_keyboard())
+    
+    def add_admin_user(self, message, user_id_to_add):
+        """إضافة أدمن جديد"""
+        try:
+            # التحقق من صحة المعرف
+            if not user_id_to_add.isdigit():
+                self.send_message(message['chat']['id'], "❌ معرف المستخدم يجب أن يكون رقماً صحيحاً", self.admin_keyboard())
+                return
+            
+            # إضافة الأدمن الجديد للقائمة
+            if int(user_id_to_add) not in self.admin_user_ids:
+                self.admin_user_ids.append(int(user_id_to_add))
+                
+                success_msg = f"""✅ تم إضافة أدمن جديد بنجاح!
+                
+🆔 معرف المستخدم: {user_id_to_add}
+🔐 تم منح صلاحيات الإدارة
+                
+💡 ملاحظة: هذا الأدمن نشط في الجلسة الحالية فقط.
+لضمان استمرارية الصلاحيات، يجب إضافة المعرف إلى متغير البيئة ADMIN_USER_IDS"""
+                
+                self.send_message(message['chat']['id'], success_msg, self.admin_keyboard())
+                logger.info(f"تم إضافة أدمن جديد: {user_id_to_add}")
+            else:
+                self.send_message(message['chat']['id'], f"⚠️ المستخدم {user_id_to_add} أدمن بالفعل", self.admin_keyboard())
+                
+        except Exception as e:
+            logger.error(f"خطأ في إضافة الأدمن: {e}")
+            self.send_message(message['chat']['id'], "❌ حدث خطأ أثناء إضافة الأدمن", self.admin_keyboard())
+    
+    def prompt_add_admin(self, message):
+        """طلب إضافة أدمن جديد"""
+        add_admin_help = """👥 إضافة أدمن جديد
+        
+الصيغة: اضافة_ادمن معرف_المستخدم
+
+مثال: اضافة_ادمن 123456789
+
+💡 لمعرفة معرف المستخدم، اطلب منه إرسال /myid"""
+        self.send_message(message['chat']['id'], add_admin_help, self.admin_keyboard())
+    
+    def show_admin_list(self, message):
+        """عرض قائمة الأدمن"""
+        admin_text = "📋 قائمة المديرين:\n\n"
+        
+        for i, admin_id in enumerate(self.admin_user_ids, 1):
+            admin_text += f"{i}. 🆔 {admin_id}\n"
+        
+        admin_text += f"\n📊 العدد الإجمالي: {len(self.admin_user_ids)} مدير"
+        
+        self.send_message(message['chat']['id'], admin_text, self.admin_keyboard())
     
     def prompt_broadcast(self, message):
         """طلب الإرسال الجماعي"""
