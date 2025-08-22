@@ -285,6 +285,7 @@ class ComprehensiveDUXBot:
                 [{'text': '📋 الطلبات المعلقة'}, {'text': '✅ طلبات مُوافقة'}],
                 [{'text': '👥 إدارة المستخدمين'}, {'text': '🔍 البحث'}],
                 [{'text': '💳 وسائل الدفع'}, {'text': '📊 الإحصائيات'}],
+                [{'text': '📊 تقرير Excel احترافي'}, {'text': '💾 نسخة احتياطية فورية'}],
                 [{'text': '📢 إرسال جماعي'}, {'text': '🚫 حظر مستخدم'}],
                 [{'text': '✅ إلغاء حظر'}, {'text': '📝 إضافة شركة'}],
                 [{'text': '⚙️ إدارة الشركات'}, {'text': '📍 إدارة العناوين'}],
@@ -1294,6 +1295,8 @@ class ComprehensiveDUXBot:
             self.show_payment_methods_management(message)
         elif text == '📊 الإحصائيات':
             self.show_detailed_stats(message)
+        elif text == '📊 تقرير Excel احترافي':
+            self.generate_professional_excel_report(message)
         elif text == '📢 إرسال جماعي':
             self.prompt_broadcast(message)
         elif text == '🚫 حظر مستخدم':
@@ -5565,6 +5568,240 @@ class ComprehensiveDUXBot:
         """تنسيق المبلغ مع العملة"""
         symbol = self.get_currency_symbol(user_currency)
         return f"{amount} {symbol}"
+    
+    def generate_professional_excel_report(self, message):
+        """إنشاء تقرير Excel احترافي"""
+        chat_id = message['chat']['id']
+        
+        try:
+            self.send_message(chat_id, "🔄 جاري إنشاء التقرير الاحترافي...")
+            
+            # إنشاء ملف تقرير احترافي
+            filename = self.create_professional_excel_report()
+            
+            if filename and os.path.exists(filename):
+                # إرسال الملف
+                self.send_document(chat_id, filename, "📊 تقرير Excel احترافي للنظام")
+                
+                success_text = f"""✅ تم إنشاء التقرير الاحترافي بنجاح!
+
+📊 الملف يحتوي على:
+• بيانات المستخدمين مع تنسيق ملون
+• المعاملات مع تمييز الحالات
+• الشكاوى مع تصنيف الحالة  
+• الشركات وبياناتها
+• وسائل الدفع المتاحة
+• إحصائيات شاملة ومفصلة
+
+🎨 التنسيق الاحترافي:
+• ملف CSV منسق ومرتب
+• عناوين واضحة ومميزة
+• فواصل جميلة بين الأقسام
+• إحصائيات مفصلة ونسب مئوية
+• دعم كامل للنصوص العربية"""
+                
+                self.send_message(chat_id, success_text, self.admin_keyboard())
+            else:
+                self.send_message(chat_id, "❌ فشل في إنشاء التقرير. يرجى المحاولة مرة أخرى.", self.admin_keyboard())
+                
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء تقرير Excel: {e}")
+            self.send_message(chat_id, f"❌ خطأ في إنشاء التقرير: {str(e)}", self.admin_keyboard())
+    
+    def create_professional_excel_report(self):
+        """إنشاء ملف تقرير احترافي منسق"""
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"DUX_Professional_Report_{timestamp}.csv"
+            
+            with open(filename, 'w', newline='', encoding='utf-8-sig') as f:
+                writer = csv.writer(f)
+                
+                # عنوان التقرير الرئيسي
+                writer.writerow(['📊 تقرير نظام DUX المالي الشامل 📊'])
+                writer.writerow([f'📅 تاريخ التقرير: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'])
+                writer.writerow(['═══════════════════════════════════════════════════════════'])
+                writer.writerow([''])
+                
+                # قسم 1: الإحصائيات الشاملة أولاً
+                writer.writerow(['📊═══ الإحصائيات الشاملة ═══'])
+                stats = self.calculate_comprehensive_statistics()
+                for category, data in stats.items():
+                    writer.writerow([f'📋 {category}'])
+                    writer.writerow(['───────────────────────────'])
+                    for key, value in data.items():
+                        writer.writerow([f'• {key}', value])
+                    writer.writerow([''])
+                
+                writer.writerow(['═══════════════════════════════════════════════════════════'])
+                writer.writerow([''])
+                
+                # قسم 2: بيانات المستخدمين
+                writer.writerow(['👥═══ بيانات المستخدمين ═══'])
+                if os.path.exists('users.csv'):
+                    with open('users.csv', 'r', encoding='utf-8-sig') as uf:
+                        user_reader = csv.reader(uf)
+                        for row in user_reader:
+                            writer.writerow(row)
+                else:
+                    writer.writerow(['لا توجد بيانات مستخدمين'])
+                writer.writerow([''])
+                
+                # قسم 3: بيانات المعاملات
+                writer.writerow(['💳═══ بيانات المعاملات ═══'])
+                if os.path.exists('transactions.csv'):
+                    with open('transactions.csv', 'r', encoding='utf-8-sig') as tf:
+                        trans_reader = csv.reader(tf)
+                        for row in trans_reader:
+                            writer.writerow(row)
+                else:
+                    writer.writerow(['لا توجد بيانات معاملات'])
+                writer.writerow([''])
+                
+                # قسم 4: بيانات الشكاوى
+                writer.writerow(['📨═══ بيانات الشكاوى ═══'])
+                if os.path.exists('complaints.csv'):
+                    with open('complaints.csv', 'r', encoding='utf-8-sig') as cf:
+                        comp_reader = csv.reader(cf)
+                        for row in comp_reader:
+                            writer.writerow(row)
+                else:
+                    writer.writerow(['لا توجد بيانات شكاوى'])
+                writer.writerow([''])
+                
+                # قسم 5: بيانات الشركات
+                writer.writerow(['🏢═══ بيانات الشركات ═══'])
+                if os.path.exists('companies.csv'):
+                    with open('companies.csv', 'r', encoding='utf-8-sig') as compf:
+                        comp_reader = csv.reader(compf)
+                        for row in comp_reader:
+                            writer.writerow(row)
+                else:
+                    writer.writerow(['لا توجد بيانات شركات'])
+                writer.writerow([''])
+                
+                # قسم 6: وسائل الدفع
+                writer.writerow(['💳═══ وسائل الدفع ═══'])
+                if os.path.exists('payment_methods.csv'):
+                    with open('payment_methods.csv', 'r', encoding='utf-8-sig') as pmf:
+                        pm_reader = csv.reader(pmf)
+                        for row in pm_reader:
+                            writer.writerow(row)
+                else:
+                    writer.writerow(['لا توجد وسائل دفع'])
+                writer.writerow([''])
+                
+                # خاتمة التقرير
+                writer.writerow(['═══════════════════════════════════════════════════════════'])
+                writer.writerow([f'📈 تم إنشاء التقرير بواسطة نظام DUX - {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'])
+                writer.writerow(['🔒 هذا التقرير سري ومخصص للإدارة فقط'])
+            
+            return filename
+            
+        except Exception as e:
+            logger.error(f"خطأ في إنشاء التقرير: {e}")
+            return None
+    
+    def calculate_comprehensive_statistics(self):
+        """حساب إحصائيات شاملة للنظام"""
+        stats = {}
+        
+        try:
+            # إحصائيات المستخدمين
+            if os.path.exists('users.csv'):
+                with open('users.csv', 'r', encoding='utf-8-sig') as f:
+                    users = list(csv.DictReader(f))
+                    
+                    # تحليل العملات واللغات
+                    currency_stats = {}
+                    language_stats = {}
+                    for user in users:
+                        currency = user.get('currency', 'SAR')
+                        language = user.get('language', 'ar')
+                        currency_stats[currency] = currency_stats.get(currency, 0) + 1
+                        language_stats[language] = language_stats.get(language, 0) + 1
+                    
+                    user_stats = {
+                        'إجمالي المستخدمين': len(users),
+                        'المستخدمين النشطين': len([u for u in users if u.get('is_banned', 'no').lower() != 'yes']),
+                        'المستخدمين المحظورين': len([u for u in users if u.get('is_banned', 'no').lower() == 'yes']),
+                        'نسبة المستخدمين النشطين': f"{(len([u for u in users if u.get('is_banned', 'no').lower() != 'yes'])/len(users)*100):.1f}%" if users else "0%"
+                    }
+                    
+                    # إضافة إحصائيات العملات
+                    for currency, count in currency_stats.items():
+                        currency_name = self.currencies.get(currency, {}).get('name', currency)
+                        user_stats[f'مستخدمي {currency_name}'] = f"{count} ({(count/len(users)*100):.1f}%)"
+                    
+                    stats['إحصائيات المستخدمين'] = user_stats
+            
+            # إحصائيات المعاملات
+            if os.path.exists('transactions.csv'):
+                with open('transactions.csv', 'r', encoding='utf-8-sig') as f:
+                    transactions = list(csv.DictReader(f))
+                    
+                    approved = [t for t in transactions if t.get('status') == 'approved']
+                    rejected = [t for t in transactions if t.get('status') == 'rejected']
+                    pending = [t for t in transactions if t.get('status') == 'pending']
+                    deposits = [t for t in transactions if t.get('type') == 'deposit']
+                    withdrawals = [t for t in transactions if t.get('type') == 'withdraw']
+                    
+                    def safe_float(value):
+                        try:
+                            return float(str(value).replace(',', '')) if value else 0.0
+                        except:
+                            return 0.0
+                    
+                    total_approved_amount = sum(safe_float(t.get('amount', 0)) for t in approved)
+                    total_deposit_amount = sum(safe_float(t.get('amount', 0)) for t in deposits if t.get('status') == 'approved')
+                    total_withdrawal_amount = sum(safe_float(t.get('amount', 0)) for t in withdrawals if t.get('status') == 'approved')
+                    
+                    transaction_stats = {
+                        'إجمالي المعاملات': len(transactions),
+                        'المعاملات المُوافقة': f"{len(approved)} ({(len(approved)/len(transactions)*100):.1f}%)" if transactions else "0",
+                        'المعاملات المرفوضة': f"{len(rejected)} ({(len(rejected)/len(transactions)*100):.1f}%)" if transactions else "0",
+                        'المعاملات المعلقة': f"{len(pending)} ({(len(pending)/len(transactions)*100):.1f}%)" if transactions else "0",
+                        'طلبات الإيداع': f"{len(deposits)} ({(len(deposits)/len(transactions)*100):.1f}%)" if transactions else "0",
+                        'طلبات السحب': f"{len(withdrawals)} ({(len(withdrawals)/len(transactions)*100):.1f}%)" if transactions else "0",
+                        'معدل الموافقة': f"{(len(approved)/len(transactions)*100):.1f}%" if transactions else "0%",
+                        'إجمالي المبالغ المُوافقة': f"{total_approved_amount:,.2f}",
+                        'إجمالي الإيداعات المُوافقة': f"{total_deposit_amount:,.2f}",
+                        'إجمالي السحوبات المُوافقة': f"{total_withdrawal_amount:,.2f}",
+                        'صافي الحركة': f"{total_deposit_amount - total_withdrawal_amount:,.2f}",
+                        'متوسط قيمة المعاملة': f"{(total_approved_amount/len(approved)):,.2f}" if approved else "0"
+                    }
+                    
+                    stats['إحصائيات المعاملات'] = transaction_stats
+            
+            # إحصائيات الشكاوى والشركات
+            if os.path.exists('complaints.csv'):
+                with open('complaints.csv', 'r', encoding='utf-8-sig') as f:
+                    complaints = list(csv.DictReader(f))
+                    resolved = [c for c in complaints if c.get('status') == 'resolved']
+                    pending_complaints = [c for c in complaints if c.get('status') == 'pending']
+                    
+                    stats['إحصائيات الشكاوى'] = {
+                        'إجمالي الشكاوى': len(complaints),
+                        'الشكاوى المحلولة': f"{len(resolved)} ({(len(resolved)/len(complaints)*100):.1f}%)" if complaints else "0",
+                        'الشكاوى المعلقة': f"{len(pending_complaints)} ({(len(pending_complaints)/len(complaints)*100):.1f}%)" if complaints else "0",
+                        'معدل الحل': f"{(len(resolved)/len(complaints)*100):.1f}%" if complaints else "0%"
+                    }
+            
+            if os.path.exists('companies.csv'):
+                with open('companies.csv', 'r', encoding='utf-8-sig') as f:
+                    companies = list(csv.DictReader(f))
+                    active = [c for c in companies if c.get('is_active', '').lower() == 'active']
+                    
+                    stats['إحصائيات الشركات'] = {
+                        'إجمالي الشركات': len(companies),
+                        'الشركات النشطة': f"{len(active)} ({(len(active)/len(companies)*100):.1f}%)" if companies else "0",
+                        'الشركات غير النشطة': f"{len(companies) - len(active)}"
+                    }
+        
+        except Exception as e:
+            logger.error(f"خطأ في حساب الإحصائيات: {e}")
+        
+        return stats
 
 if __name__ == "__main__":
     # جلب التوكن

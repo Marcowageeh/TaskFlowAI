@@ -96,6 +96,12 @@ Admin Commands: Simplified format without complex syntax requirements.
   - `اضافة_وسيلة_دفع ID_الشركة اسم_الوسيلة نوع_الوسيلة البيانات`
   - `حذف_وسيلة_دفع ID_الوسيلة`
   - `تعديل_وسيلة_دفع ID_الوسيلة البيانات_الجديدة`
+- **Professional Excel Reports**: 
+  - Button: "📊 تقرير Excel احترافي" for comprehensive data export
+  - CSV format with professional formatting and Arabic support
+  - Comprehensive statistics with percentages and detailed breakdowns
+  - Organized sections: Users, Transactions, Complaints, Companies, Payment Methods
+  - Real-time data analysis with currency breakdowns and performance metrics
 - **Examples**: "موافقة DEP123", "رفض WTH456 سبب", "اضف_شركة اسم نوع تفاصيل"
 - **Navigation**: Button-based admin panel with payment method management
 
