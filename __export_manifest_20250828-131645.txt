@@ -1,0 +1,217 @@
+total 676
+drwxr-xr-x 1 runner runner   1434 Aug 28 13:16 .
+drwxrwxrwx 1 runner runner    116 Aug 28 13:08 ..
+-rw-r--r-- 1 runner runner  76433 Aug 21 16:38 advanced_bot.py
+drwxr-xr-x 1 runner runner    234 Aug 21 21:07 attached_assets
+drwxr-xr-x 1 runner runner    128 Aug 21 13:11 backup_server_files
+-rw-r--r-- 1 runner runner   3344 Aug 21 12:16 bot.py
+drwxr-xr-x 1 runner runner     16 Aug 21 12:24 .cache
+-rw-r--r-- 1 runner runner    540 Aug 28 00:22 companies.csv
+-rw-r--r-- 1 runner runner   1232 Aug 26 16:31 complaints.csv
+-rw-r--r-- 1 runner runner    117 Aug 21 13:11 complaints_data.csv
+-rw-r--r-- 1 runner runner 279857 Aug 22 09:16 comprehensive_bot.py
+drwxr-xr-x 1 runner runner     16 Aug 27 07:40 .config
+-rw-r--r-- 1 runner runner   2685 Aug 21 12:16 config.py
+-rw-r--r-- 1 runner runner   8263 Aug 27 23:08 DUX_Professional_Report_20250827_230826.csv
+-rw-r--r-- 1 runner runner    181 Aug 28 13:16 .env
+-rw-r--r-- 1 runner runner   1475 Aug 21 12:23 .env.example
+-rw-r--r-- 1 runner runner  30059 Aug 21 13:10 excel_bot.py
+-rw-r--r-- 1 runner runner  16612 Aug 22 09:10 excel_formatter.py
+-rw-r--r-- 1 runner runner    101 Aug 21 22:53 exchange_addresses.csv
+-rw-r--r-- 1 runner runner      0 Aug 28 13:16 __export_manifest_20250828-131645.txt
+-rw-r--r-- 1 runner runner  22868 Aug 21 16:05 fixed_bot.py
+drwxr-xr-x 1 runner runner    166 Aug 28 13:09 .git
+drwxr-xr-x 1 runner runner    120 Aug 21 12:19 handlers
+-rw-r--r-- 1 runner runner   2972 Aug 21 23:26 LangSense_Backup_20250821_232613.zip
+-rw-r--r-- 1 runner runner  28672 Aug 21 12:49 langsense.db
+drwxr-xr-x 1 runner runner     10 Aug 21 12:13 .local
+-rw-r--r-- 1 runner runner   2328 Aug 26 16:31 main.py
+-rw-r--r-- 1 runner runner  11331 Aug 21 12:17 models.py
+-rw-r--r-- 1 runner runner    684 Aug 22 01:48 payment_methods.csv
+drwxr-xr-x 1 runner runner    150 Aug 28 12:52 paymentsbot-update
+-rw-r--r-- 1 runner runner      0 Aug 28 13:16 pg_dump_20250828-131645.sql
+-rw-r--r-- 1 runner runner    143 Aug 26 10:43 pyproject.toml
+drwxr-xr-x 1 runner runner     86 Aug 21 12:24 .pythonlibs
+-rw-r--r-- 1 runner runner   1965 Aug 21 12:23 README.md
+-rw-r--r-- 1 runner runner    687 Aug 26 16:31 .replit
+-rw-r--r-- 1 runner runner   8800 Aug 22 09:16 replit.md
+-rw-r--r-- 1 runner runner   3611 Aug 21 12:23 run_linux.sh
+-rw-r--r-- 1 runner runner   2762 Aug 21 12:23 run_windows.bat
+drwxr-xr-x 1 runner runner     82 Aug 21 12:20 services
+-rw-r--r-- 1 runner runner  17326 Aug 21 12:27 simple_bot.py
+-rw-r--r-- 1 runner runner  37528 Aug 21 21:07 simple_improved_bot.py
+-rw-r--r-- 1 runner runner  30243 Aug 21 19:33 simple_payment_bot.py
+-rw-r--r-- 1 runner runner    601 Aug 22 00:43 system_settings.csv
+-rw-r--r-- 1 runner runner   3996 Aug 21 12:29 test_bot.py
+-rw-r--r-- 1 runner runner     51 Aug 21 21:16 test_company.txt
+-rw-r--r-- 1 runner runner    123 Aug 28 12:45 transactions.csv
+-rw-r--r-- 1 runner runner    110 Aug 21 13:11 transactions_data.csv
+drwxr-xr-x 1 runner runner     50 Aug 26 07:49 translations
+drwxr-xr-x 1 runner runner     20 Aug 26 10:43 .upm
+-rw-r--r-- 1 runner runner    623 Aug 28 12:44 users.csv
+-rw-r--r-- 1 runner runner    118 Aug 21 13:11 users_data.csv
+drwxr-xr-x 1 runner runner     38 Aug 21 12:21 utils
+./advanced_bot.py	76 KB
+./attached_assets/Pasted---1755778369065_1755778369065.txt	16 KB
+./attached_assets/Pasted--LangSense-Telegram-Bot-Windows-Setup--1755781125698_1755781125698.txt	8 KB
+./backup_server_files/bot.py	4 KB
+./backup_server_files/config.py	4 KB
+./backup_server_files/handlers/admin.py	16 KB
+./backup_server_files/handlers/announcements.py	12 KB
+./backup_server_files/handlers/broadcast.py	16 KB
+./backup_server_files/handlers/start.py	12 KB
+./backup_server_files/handlers/user_settings.py	12 KB
+./backup_server_files/main.py	4 KB
+./backup_server_files/models.py	12 KB
+./backup_server_files/services/broadcast_service.py	12 KB
+./backup_server_files/services/customer_id.py	4 KB
+./backup_server_files/services/i18n.py	4 KB
+./backup_server_files/translations/ar.json	12 KB
+./backup_server_files/translations/en.json	8 KB
+./backup_server_files/utils/auth.py	4 KB
+./backup_server_files/utils/keyboards.py	16 KB
+./bot.py	4 KB
+./.cache/replit/last_scan_result.json	72 KB
+./.cache/replit/modules.stamp	0 KB
+./.cache/replit/toolchain.json	4 KB
+./.cache/uv/CACHEDIR.TAG	4 KB
+./.cache/uv/.gitignore	4 KB
+./companies.csv	4 KB
+./complaints.csv	4 KB
+./complaints_data.csv	4 KB
+./comprehensive_bot.py	276 KB
+./config.py	4 KB
+./.config/.semgrep/semgrep_rules.json	1740 KB
+./DUX_Professional_Report_20250827_230826.csv	12 KB
+./.env	4 KB
+./.env.example	4 KB
+./excel_bot.py	32 KB
+./excel_formatter.py	20 KB
+./exchange_addresses.csv	4 KB
+./__export_manifest_20250828-131645.txt	4 KB
+./fixed_bot.py	24 KB
+./.git/COMMIT_EDITMSG	4 KB
+./.git/config	4 KB
+./.git/description	4 KB
+./.git/FETCH_HEAD	4 KB
+./.git/HEAD	4 KB
+./.git/hooks/applypatch-msg.sample	4 KB
+./.git/hooks/commit-msg.sample	4 KB
+./.git/hooks/fsmonitor-watchman.sample	8 KB
+./.git/hooks/post-update.sample	4 KB
+./.git/hooks/pre-applypatch.sample	4 KB
+./.git/hooks/pre-commit.sample	4 KB
+./.git/hooks/pre-merge-commit.sample	4 KB
+./.git/hooks/prepare-commit-msg.sample	4 KB
+./.git/hooks/pre-push.sample	4 KB
+./.git/hooks/pre-rebase.sample	8 KB
+./.git/hooks/pre-receive.sample	4 KB
+./.git/hooks/push-to-checkout.sample	4 KB
+./.git/hooks/sendemail-validate.sample	4 KB
+./.git/hooks/update.sample	4 KB
+./.git/index	164 KB
+./.git/info/exclude	4 KB
+./.git/logs/HEAD	24 KB
+./.git/ORIG_HEAD	4 KB
+./handlers/admin.py	16 KB
+./handlers/announcements.py	12 KB
+./handlers/broadcast.py	16 KB
+./handlers/start.py	12 KB
+./handlers/user_settings.py	12 KB
+./LangSense_Backup_20250821_232613.zip	4 KB
+./langsense.db	28 KB
+./main.py	4 KB
+./models.py	12 KB
+./payment_methods.csv	4 KB
+./paymentsbot-update/.git/config	4 KB
+./paymentsbot-update/.git/description	4 KB
+./paymentsbot-update/.git/HEAD	4 KB
+./paymentsbot-update/.gitignore	4 KB
+./paymentsbot-update/.git/index	12 KB
+./paymentsbot-update/.git/packed-refs	4 KB
+./paymentsbot-update/README.md	4 KB
+./paymentsbot-update/TaskFlowAI-main/advanced_bot.py	76 KB
+./paymentsbot-update/TaskFlowAI-main/bot.py	4 KB
+./paymentsbot-update/TaskFlowAI-main/companies.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/complaints.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/complaints_data.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/comprehensive_bot.py	276 KB
+./paymentsbot-update/TaskFlowAI-main/config.py	4 KB
+./paymentsbot-update/TaskFlowAI-main/.env.example	4 KB
+./paymentsbot-update/TaskFlowAI-main/excel_bot.py	32 KB
+./paymentsbot-update/TaskFlowAI-main/excel_formatter.py	20 KB
+./paymentsbot-update/TaskFlowAI-main/exchange_addresses.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/fixed_bot.py	24 KB
+./paymentsbot-update/TaskFlowAI-main/LangSense_Backup_20250821_232613.zip	4 KB
+./paymentsbot-update/TaskFlowAI-main/langsense.db	28 KB
+./paymentsbot-update/TaskFlowAI-main/main.py	4 KB
+./paymentsbot-update/TaskFlowAI-main/models.py	12 KB
+./paymentsbot-update/TaskFlowAI-main/payment_methods.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/pyproject.toml	4 KB
+./paymentsbot-update/TaskFlowAI-main/README.md	4 KB
+./paymentsbot-update/TaskFlowAI-main/.replit	4 KB
+./paymentsbot-update/TaskFlowAI-main/replit.md	12 KB
+./paymentsbot-update/TaskFlowAI-main/run_linux.sh	4 KB
+./paymentsbot-update/TaskFlowAI-main/run_windows.bat	4 KB
+./paymentsbot-update/TaskFlowAI-main/simple_bot.py	20 KB
+./paymentsbot-update/TaskFlowAI-main/simple_improved_bot.py	40 KB
+./paymentsbot-update/TaskFlowAI-main/simple_payment_bot.py	32 KB
+./paymentsbot-update/TaskFlowAI-main/system_settings.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/test_bot.py	4 KB
+./paymentsbot-update/TaskFlowAI-main/test_company.txt	4 KB
+./paymentsbot-update/TaskFlowAI-main/transactions.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/transactions_data.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/users.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main/users_data.csv	4 KB
+./paymentsbot-update/TaskFlowAI-main.zip	180 KB
+./paymentsbot-update/tg_finance_bot/config.py	4 KB
+./paymentsbot-update/tg_finance_bot/db.py	4 KB
+./paymentsbot-update/tg_finance_bot/.env.example	4 KB
+./paymentsbot-update/tg_finance_bot/.gitignore	4 KB
+./paymentsbot-update/tg_finance_bot/main.py	4 KB
+./paymentsbot-update/tg_finance_bot/middleware.py	4 KB
+./paymentsbot-update/tg_finance_bot/models.py	8 KB
+./paymentsbot-update/tg_finance_bot/README.md	12 KB
+./paymentsbot-update/tg_finance_bot/requirements.txt	4 KB
+./paymentsbot-update/tg_finance_bot/run_linux.sh	4 KB
+./paymentsbot-update/tg_finance_bot/run.py	4 KB
+./paymentsbot-update/tg_finance_bot/run_windows.bat	4 KB
+./paymentsbot-update/venv/pyvenv.cfg	4 KB
+./pg_dump_20250828-131645.sql	0 KB
+./pyproject.toml	4 KB
+./.pythonlibs/bin/activate	4 KB
+./.pythonlibs/bin/activate.bat	4 KB
+./.pythonlibs/bin/activate.csh	4 KB
+./.pythonlibs/bin/activate.fish	8 KB
+./.pythonlibs/bin/activate.nu	4 KB
+./.pythonlibs/bin/activate.ps1	4 KB
+./.pythonlibs/bin/activate_this.py	4 KB
+./.pythonlibs/bin/deactivate.bat	4 KB
+./.pythonlibs/bin/pydoc.bat	4 KB
+./.pythonlibs/CACHEDIR.TAG	4 KB
+./.pythonlibs/.gitignore	4 KB
+./.pythonlibs/pyvenv.cfg	4 KB
+./README.md	4 KB
+./.replit	4 KB
+./replit.md	12 KB
+./run_linux.sh	4 KB
+./run_windows.bat	4 KB
+./services/broadcast_service.py	12 KB
+./services/customer_id.py	4 KB
+./services/i18n.py	4 KB
+./simple_bot.py	20 KB
+./simple_improved_bot.py	40 KB
+./simple_payment_bot.py	32 KB
+./system_settings.csv	4 KB
+./test_bot.py	4 KB
+./test_company.txt	4 KB
+./transactions.csv	4 KB
+./transactions_data.csv	4 KB
+./translations/ar.json	12 KB
+./translations/en.json	8 KB
+./translations/__pycache__/comprehensive_bot.cpython-311.pyc	228 KB
+./.upm/store.json	4 KB
+./users.csv	4 KB
+./users_data.csv	4 KB
+./utils/auth.py	4 KB
+./utils/keyboards.py	16 KB
